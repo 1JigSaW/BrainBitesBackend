@@ -37,8 +37,6 @@ AUTH_USER_MODEL = 'app.CustomUser'
 
 
 
-# Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
