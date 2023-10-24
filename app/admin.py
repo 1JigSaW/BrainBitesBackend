@@ -1,3 +1,47 @@
 from django.contrib import admin
+from .models import CustomUser, Topic, Card, Quiz, UserQuizAnswer, Badge, Leaderboard
 
-# Register your models here.
+
+@admin.register(CustomUser)
+class CustomUserAdmin(admin.ModelAdmin):
+    list_display = ['username', 'xp', 'email', 'date_joined']
+    search_fields = ['username', 'email']
+
+
+@admin.register(Topic)
+class TopicAdmin(admin.ModelAdmin):
+    list_display = ['title']
+    search_fields = ['title']
+
+
+@admin.register(Card)
+class CardAdmin(admin.ModelAdmin):
+    list_display = ['title', 'topic', 'source']
+    search_fields = ['title', 'content', 'source']
+    list_filter = ['topic']
+
+
+@admin.register(Quiz)
+class QuizAdmin(admin.ModelAdmin):
+    list_display = ['card', 'question', 'correct_answer']
+    search_fields = ['question', 'correct_answer']
+
+
+@admin.register(UserQuizAnswer)
+class UserQuizAnswerAdmin(admin.ModelAdmin):
+    list_display = ['user', 'quiz', 'selected_answer']
+    search_fields = ['user__username', 'quiz__question']
+    list_filter = ['user', 'quiz']
+
+
+@admin.register(Badge)
+class BadgeAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
+
+
+@admin.register(Leaderboard)
+class LeaderboardAdmin(admin.ModelAdmin):
+    list_display = ['user', 'category', 'rank']
+    search_fields = ['user__username', 'category']
+    list_filter = ['category']
