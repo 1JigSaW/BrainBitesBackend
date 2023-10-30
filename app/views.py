@@ -82,23 +82,26 @@ class CreateUserView(APIView):
 class GetUserStatsView(APIView):
     def get(self, request, *args, **kwargs):
         user_id = kwargs.get('user_id')
-        print('user_id', user_id);
+        print('user_id', user_id)
         try:
-            user = CustomUser.objects.get(id=user_id)  # Use the custom user model here
+            user = CustomUser.objects.get(id=user_id)
             saved_cards_count = user.saved_cards.count()
+            read_cards_count = user.read_cards.count()  # Count of read cards
             earned_badges = user.earned_badges.all()
             earned_badges_count = earned_badges.count()
+            topics = user.topics.all()
 
-            # Prepare the data for the response
             user_data = {
                 'username': user.username,
                 'xp': user.xp,
                 'saved_cards_count': saved_cards_count,
+                'read_cards_count': read_cards_count,  # Include read cards count here
                 'earned_badges_count': earned_badges_count,
                 'earned_badges': BadgeSerializer(earned_badges, many=True).data if earned_badges else [],
+                'topics': TopicSerializer(topics, many=True).data
             }
 
-            # You might want to use a serializer to validate and format the response data
+            # Serialize the data
             serializer = UserStatsSerializer(user_data)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -106,4 +109,47 @@ class GetUserStatsView(APIView):
             return Response(
                 {"error": "User not found."},
                 status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class UpdateUserTopicsView(APIView):
+    def put(self, request, *args, **kwargs):
+        print('request');
+        user_id = kwargs.get('user_id')
+        topic_ids = request.data.get('topic_ids', [])
+
+        if not user_id:
+            return Response(
+                {"error": "User ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "User not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        topics = Topic.objects.filter(id__in=topic_ids)
+        if len(topics) != len(topic_ids):
+            return Response(
+                {"error": "One or more topics do not exist."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                user.topics.set(topics)
+                user.save()
+
+                # Serialize the updated user data
+                user_serializer = UserSerializer(user)
+                return Response(user_serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": "Failed to update user topics due to an unexpected error."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

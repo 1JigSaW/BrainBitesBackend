@@ -23,11 +23,13 @@ class BadgeSerializer(serializers.Serializer):
 
 
 class UserStatsSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
     xp = serializers.IntegerField()
     saved_cards_count = serializers.IntegerField()
+    read_cards_count = serializers.IntegerField()  # Add this field
     earned_badges_count = serializers.IntegerField()
     earned_badges = BadgeSerializer(many=True)
-    username = serializers.CharField();
+    topics = TopicSerializer(many=True)
 
     def validate_xp(self, value):
         # You can add custom validation for experience points here
