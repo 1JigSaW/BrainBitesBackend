@@ -1,4 +1,5 @@
 from cloudinary.models import CloudinaryField
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 
@@ -7,6 +8,7 @@ class CustomUser(AbstractUser):
     username = models.CharField(max_length=150, unique=True)
     xp = models.PositiveIntegerField(default=0)
     saved_cards = models.ManyToManyField('Card', blank=True, related_name='users_saved')
+    read_cards = models.PositiveIntegerField(default=0)
     topics = models.ManyToManyField('Topic', blank=True, related_name='users_interested')
     groups = models.ManyToManyField(Group, related_name="customuser_groups")
     user_permissions = models.ManyToManyField(Permission, related_name="customuser_user_permissions")
@@ -34,6 +36,15 @@ class Card(models.Model):
 
     def __str__(self):
         return f"{self.title} {self.topic.title}"
+
+
+class ViewedCard(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='viewed_cards')
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name='viewed_by_users')
+    date_viewed = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'card')
 
 
 class Quiz(models.Model):

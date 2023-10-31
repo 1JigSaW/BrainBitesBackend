@@ -1,10 +1,16 @@
 from rest_framework import serializers
-from .models import Topic, CustomUser
+from .models import Topic, CustomUser, Card, Subtitle
 
 
 class TopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
+        fields = ('id', 'title')
+
+
+class SubtitleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subtitle
         fields = ('id', 'title')
 
 
@@ -36,3 +42,11 @@ class UserStatsSerializer(serializers.Serializer):
         if value < 0:
             raise serializers.ValidationError("XP cannot be negative.")
         return value
+
+
+class CardSerializer(serializers.ModelSerializer):
+    topic = serializers.StringRelatedField()
+    subtitle = serializers.StringRelatedField()
+    class Meta:
+        model = Card
+        fields = ['id', 'topic', 'subtitle', 'title', 'content', 'source', 'read_count', 'image']

@@ -2,6 +2,7 @@ import random
 import string
 
 from django.db import transaction, IntegrityError
+from django.db.models import Subquery
 from django.http import JsonResponse
 from django.views import View
 from django.contrib.auth.models import User
@@ -9,8 +10,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import CustomUser, Topic
-from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer
+from app.models import CustomUser, Topic, ViewedCard, Card
+from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer
 
 
 class CheckUsernameUniqueView(APIView):
@@ -86,7 +87,7 @@ class GetUserStatsView(APIView):
         try:
             user = CustomUser.objects.get(id=user_id)
             saved_cards_count = user.saved_cards.count()
-            read_cards_count = user.read_cards.count()  # Count of read cards
+            read_cards_count = user.read_cards  # Count of read cards
             earned_badges = user.earned_badges.all()
             earned_badges_count = earned_badges.count()
             topics = user.topics.all()
@@ -153,3 +154,33 @@ class UpdateUserTopicsView(APIView):
                 {"error": "Failed to update user topics due to an unexpected error."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class GetRandomCardsView(APIView):
+    def get(self, request, *args, **kwargs):
+        user_id = kwargs.get('user_id')
+        user = CustomUser.objects.get(id=user_id)
+        user_topics = user.topics.all().values_list('id', flat=True)
+        print(user_topics)
+        viewed_card_ids = ViewedCard.objects.filter(user=user).values_list('card_id', flat=True)
+        print(viewed_card_ids);
+        # cards_query = Card.objects.filter(topic_id__in=Subquery(user_topics)).exclude(id__in=viewed_card_ids)
+
+        cards_query = Card.objects.filter(topic_id__in=user_topics)\
+            # .exclude(id__in=viewed_card_ids)
+        print('cards_query', cards_query);
+        cards_count = cards_query.count()
+        if cards_count == 0:
+            return Response([], status=status.HTTP_204_NO_CONTENT)
+        print(cards_count)
+        random_card_ids = random.sample(list(cards_query.values_list('id', flat=True)), min(cards_count, 10))
+        random_cards = cards_query.filter(id__in=random_card_ids)
+
+        # Сохраняем карточки как просмотренные
+        with transaction.atomic():
+            viewed_cards = [ViewedCard(user=user, card_id=card_id) for card_id in random_card_ids]
+            ViewedCard.objects.bulk_create(viewed_cards, ignore_conflicts=True)  # Игнорируем конфликты на случай повторного запроса
+
+        # Сериализация и вывод данных
+        serializer = CardSerializer(random_cards, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
