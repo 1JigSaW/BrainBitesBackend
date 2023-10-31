@@ -1,3 +1,4 @@
+from cloudinary.models import CloudinaryField
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 
@@ -14,34 +15,63 @@ class CustomUser(AbstractUser):
 class Topic(models.Model):
     title = models.CharField(max_length=255)
 
+    def __str__(self):
+        return f"{self.title}"
+
+
+class Subtitle(models.Model):
+    title = models.CharField(max_length=255)
+
 
 class Card(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='cards')
+    subtitle = models.ForeignKey(Subtitle, on_delete=models.CASCADE, related_name='subtitle', null=True, blank=True)
     title = models.CharField(max_length=255)
     content = models.TextField()
     source = models.CharField(max_length=255)
-    users_read = models.ManyToManyField(CustomUser, blank=True, related_name='read_cards')
+    read_count = models.PositiveIntegerField(default=0)  # Tracks how many times the card has been read
+    image = CloudinaryField('image')
+
+    def __str__(self):
+        return f"{self.title} {self.topic.title}"
 
 
 class Quiz(models.Model):
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name='quizzes')
     question = models.TextField()
     correct_answer = models.CharField(max_length=255)
-    wrong_answer1 = models.CharField(max_length=255)
-    wrong_answer2 = models.CharField(max_length=255)
-    wrong_answer3 = models.CharField(max_length=255)
+    answers = models.JSONField(default=list)  # Store all answers as a JSON list
+
+    def __str__(self):
+        return f"{self.card.title} {self.question} "
 
 
-class UserQuizAnswer(models.Model):
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='quiz_answers')
-    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='user_answers')
-    selected_answer = models.CharField(max_length=255)
+class UserQuizStatistics(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='quiz_stats')
+    total_attempts = models.PositiveIntegerField(default=0)
+    correct_attempts = models.PositiveIntegerField(default=0)
 
 
 class Badge(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
-    users_earned = models.ManyToManyField(CustomUser, blank=True, related_name='earned_badges')
+    image = models.ImageField(upload_to='badges/', default='path/to/my/default/image.jpg')
+    criteria = models.JSONField(default=dict)
+
+
+class EarnedBadge(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='earned_badges')
+    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name='earned_by')
+    date_earned = models.DateTimeField(auto_now_add=True)
+
+
+class UserBadgeProgress(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='badge_progress')
+    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name='user_progress')
+    progress = models.JSONField(default=dict)
+
+    def __str__(self):
+        return f"{self.user}'s progress on {self.badge}"
 
 
 class Leaderboard(models.Model):

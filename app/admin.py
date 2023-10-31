@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Topic, Card, Quiz, UserQuizAnswer, Badge, Leaderboard
+from .models import CustomUser, Topic, Card, Quiz, Badge, Leaderboard
 
 
 @admin.register(CustomUser)
@@ -25,13 +25,6 @@ class CardAdmin(admin.ModelAdmin):
 class QuizAdmin(admin.ModelAdmin):
     list_display = ['card', 'question', 'correct_answer']
     search_fields = ['question', 'correct_answer']
-
-
-@admin.register(UserQuizAnswer)
-class UserQuizAnswerAdmin(admin.ModelAdmin):
-    list_display = ['user', 'quiz', 'selected_answer']
-    search_fields = ['user__username', 'quiz__question']
-    list_filter = ['user', 'quiz']
 
 
 @admin.register(Badge)
