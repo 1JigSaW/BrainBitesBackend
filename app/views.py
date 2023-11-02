@@ -156,31 +156,44 @@ class UpdateUserTopicsView(APIView):
             )
 
 
-class GetRandomCardsView(APIView):
+class CardListView(APIView):
+
     def get(self, request, *args, **kwargs):
         user_id = kwargs.get('user_id')
-        user = CustomUser.objects.get(id=user_id)
+
+        # Handle the case where user_id is not provided or invalid
+        if not user_id:
+            return Response({'error': 'User ID must be provided'}, status=400)
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+
+        # Assuming the topics relationship and viewed_cards method exist and work correctly
         user_topics = user.topics.all().values_list('id', flat=True)
-        print(user_topics)
-        viewed_card_ids = ViewedCard.objects.filter(user=user).values_list('card_id', flat=True)
-        print(viewed_card_ids);
-        # cards_query = Card.objects.filter(topic_id__in=Subquery(user_topics)).exclude(id__in=viewed_card_ids)
+        limit = 20  # Limit the number of cards to 20
 
-        cards_query = Card.objects.filter(topic_id__in=user_topics)\
-            # .exclude(id__in=viewed_card_ids)
-        print('cards_query', cards_query);
-        cards_count = cards_query.count()
-        if cards_count == 0:
-            return Response([], status=status.HTTP_204_NO_CONTENT)
-        print(cards_count)
-        random_card_ids = random.sample(list(cards_query.values_list('id', flat=True)), min(cards_count, 10))
-        random_cards = cards_query.filter(id__in=random_card_ids)
+        # Get the IDs of the cards the user has already viewed
+        viewed_card_ids = user.viewed_cards.all().values_list('card_id', flat=True)
 
-        # Сохраняем карточки как просмотренные
-        with transaction.atomic():
-            viewed_cards = [ViewedCard(user=user, card_id=card_id) for card_id in random_card_ids]
-            ViewedCard.objects.bulk_create(viewed_cards, ignore_conflicts=True)  # Игнорируем конфликты на случай повторного запроса
+        # Select cards that the user hasn't viewed yet within their topics
+        cards = Card.objects.filter(topic__id__in=user_topics).exclude(id__in=viewed_card_ids)[:limit]
 
-        # Сериализация и вывод данных
-        serializer = CardSerializer(random_cards, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        if not cards:
+            return Response({'error': 'No more cards to show'}, status=404)
+
+        # If there are no cards left, it's time for a test
+        if not cards.exists():
+            # Logic for resetting viewed cards or another mechanism
+            # for showing tests or cards again can be implemented here
+            return Response({'test_required': True})
+
+        # Create entries for viewed cards
+        ViewedCard.objects.bulk_create(
+            [ViewedCard(user=user, card=card) for card in cards],
+            ignore_conflicts=True
+        )
+
+        serializer = CardSerializer(cards, many=True)
+        return Response(serializer.data)
