@@ -161,39 +161,43 @@ class CardListView(APIView):
     def get(self, request, *args, **kwargs):
         user_id = kwargs.get('user_id')
 
-        # Handle the case where user_id is not provided or invalid
+        # Проверяем, предоставлен ли user_id
         if not user_id:
             return Response({'error': 'User ID must be provided'}, status=400)
 
+        # Получаем объект пользователя или возвращаем ошибку, если такого нет
         try:
             user = CustomUser.objects.get(id=user_id)
         except CustomUser.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
 
-        # Assuming the topics relationship and viewed_cards method exist and work correctly
+        # Получаем темы пользователя
         user_topics = user.topics.all().values_list('id', flat=True)
-        limit = 20  # Limit the number of cards to 20
 
-        # Get the IDs of the cards the user has already viewed
+        # Получаем лимит из параметров запроса или используем значение по умолчанию
+        limit = request.query_params.get('limit', 20)
+        try:
+            limit = int(limit)
+        except ValueError:
+            return Response({'error': 'Invalid limit value'}, status=400)
+
+        # Получаем ID карточек, которые пользователь уже просмотрел
         viewed_card_ids = user.viewed_cards.all().values_list('card_id', flat=True)
 
-        # Select cards that the user hasn't viewed yet within their topics
+        # Выбираем карточки, которые пользователь ещё не видел
         cards = Card.objects.filter(topic__id__in=user_topics).exclude(id__in=viewed_card_ids)[:limit]
 
+        # Если карточек не осталось, пришло время для теста
         if not cards:
-            return Response({'error': 'No more cards to show'}, status=404)
-
-        # If there are no cards left, it's time for a test
-        if not cards.exists():
-            # Logic for resetting viewed cards or another mechanism
-            # for showing tests or cards again can be implemented here
             return Response({'test_required': True})
 
-        # Create entries for viewed cards
+        # Создаем записи о просмотренных карточках
         ViewedCard.objects.bulk_create(
             [ViewedCard(user=user, card=card) for card in cards],
             ignore_conflicts=True
         )
 
+        # Сериализуем данные и возвращаем их
         serializer = CardSerializer(cards, many=True)
+        print('serializer', cards);
         return Response(serializer.data)
