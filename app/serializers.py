@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Topic, CustomUser, Card, Subtitle
+from .models import Topic, CustomUser, Card, Subtitle, Quiz
 
 
 class TopicSerializer(serializers.ModelSerializer):
@@ -47,6 +47,13 @@ class UserStatsSerializer(serializers.Serializer):
 class CardSerializer(serializers.ModelSerializer):
     topic = serializers.StringRelatedField()
     subtitle = serializers.StringRelatedField()
+
     class Meta:
         model = Card
         fields = ['id', 'topic', 'subtitle', 'title', 'content', 'source', 'read_count', 'image']
+
+
+class QuizSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Quiz
+        fields = '__all__'
