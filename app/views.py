@@ -228,3 +228,38 @@ class MarkCardsAsTestPassed(APIView):
         else:
             return Response({'message': 'No cards needed to be updated. All cards are already marked as test passed.'},
                             status=200)
+
+
+class IncrementReadCards(APIView):
+
+    def post(self, request, *args, **kwargs):
+        user_id = kwargs.get('user_id')
+        cards_count = request.data.get('cards_count')
+
+        if not user_id:
+            return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if cards_count is None:
+            return Response({'error': 'The number of cards to add must be provided'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Convert cards_count to an integer, and raise an error if it's not valid
+            cards_count = int(cards_count)
+            if cards_count <= 0:
+                raise ValueError("The cards count must be a positive integer.")
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            user.read_cards += cards_count
+            user.save()
+
+            return Response(
+                {'message': f'User read_cards count updated by {cards_count}. New total: {user.read_cards}'},
+                status=status.HTTP_200_OK)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': 'An unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
