@@ -182,8 +182,6 @@ class CardListView(APIView):
 
         cards = Card.objects.filter(topic__id__in=user_topics).exclude(id__in=viewed_card_ids)[:limit]
 
-        if not cards:
-            return Response({'test_required': True})
 
         ViewedCard.objects.bulk_create(
             [ViewedCard(user=user, card=card) for card in cards],
@@ -210,3 +208,23 @@ class QuizListView(APIView):
         print('quizzes', quizzes)
 
         return Response(serializer.data)
+
+
+class MarkCardsAsTestPassed(APIView):
+
+    def post(self, request, *args, **kwargs):
+        user_id = kwargs.get('user_id')
+
+        if not user_id:
+            return Response({'error': 'User ID must be provided'}, status=400)
+
+        updated_cards_count = ViewedCard.objects.filter(
+            user_id=user_id,
+            test_passed=False
+        ).update(test_passed=True)
+
+        if updated_cards_count > 0:
+            return Response({'message': f'{updated_cards_count} cards marked as test passed.'}, status=200)
+        else:
+            return Response({'message': 'No cards needed to be updated. All cards are already marked as test passed.'},
+                            status=200)
