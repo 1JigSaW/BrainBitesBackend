@@ -232,10 +232,11 @@ class MarkCardsAsTestPassed(APIView):
 
 class IncrementReadCards(APIView):
 
-    def post(self, request, *args, **kwargs):
+    def put(self, request, *args, **kwargs):
+        print('request.data', request.data);
         user_id = kwargs.get('user_id')
-        cards_count = request.data.get('cards_count')
-
+        cards_count = request.data.get('read_cards')
+        print('read_cards', cards_count)
         if not user_id:
             return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -259,6 +260,67 @@ class IncrementReadCards(APIView):
             return Response(
                 {'message': f'User read_cards count updated by {cards_count}. New total: {user.read_cards}'},
                 status=status.HTTP_200_OK)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': 'An unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SaveCard(APIView):
+
+    def put(self, request, *args, **kwargs):
+        print('request.data', request.data)
+        user_id = kwargs.get('user_id')
+        card_id = request.data.get('card_id')
+
+        if not user_id:
+            return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not card_id:
+            return Response({'error': 'Card ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            card = Card.objects.get(id=card_id)
+            # Check if the card is already saved, if so, remove it
+            if card in user.saved_cards.all():
+                user.saved_cards.remove(card)
+                action = 'removed from'
+            else:
+                # If the card is not already saved, save it
+                user.saved_cards.add(card)
+                action = 'saved to'
+            user.save()
+            return Response(
+                {'message': f'Card {card_id} {action} user {user_id}.'},
+                status=status.HTTP_200_OK
+            )
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Card.DoesNotExist:
+            return Response({'error': 'Card does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': 'An unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SavedCards(APIView):
+
+    def get(self, request, *args, **kwargs):
+        print(2)
+        user_id = kwargs.get('user_id')
+
+        if not user_id:
+            return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            print(1)
+            user = CustomUser.objects.get(id=user_id)
+            # Get all saved cards for the user
+            saved_cards = user.saved_cards.all()
+            # Serialize the card data
+            serializer = CardSerializer(saved_cards, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
         except CustomUser.DoesNotExist:
             return Response({'error': 'User does not exist'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
