@@ -17,10 +17,11 @@ class SubtitleSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     saved_cards = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     topics = TopicSerializer(many=True, read_only=True)
+    badges_count = serializers.IntegerField(read_only=True, required=False)
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'xp', 'saved_cards', 'topics')
+        fields = '__all__'
 
 
 class BadgeSerializer(serializers.Serializer):

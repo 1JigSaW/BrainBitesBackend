@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django import forms
 
-from .models import CustomUser, Topic, Card, Quiz, Badge, Leaderboard
+from .models import CustomUser, Topic, Card, Quiz, Badge, Leaderboard, EarnedBadge
 
 
 @admin.register(CustomUser)
@@ -54,3 +54,14 @@ class LeaderboardAdmin(admin.ModelAdmin):
     list_display = ['user', 'category', 'rank']
     search_fields = ['user__username', 'category']
     list_filter = ['category']
+
+
+@admin.register(EarnedBadge)
+class EarnedBadgeAdmin(admin.ModelAdmin):
+    list_display = ['user', 'badge', 'date_earned']
+    search_fields = ['user__username', 'badge__name']
+    list_filter = ['badge', 'date_earned']
+
+    def get_queryset(self, request):
+        # Customize the queryset if needed, for example, you can prefetch related objects
+        return super().get_queryset(request).select_related('user', 'badge')

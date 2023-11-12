@@ -1,8 +1,10 @@
 import random
 import string
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction, IntegrityError
-from django.db.models import Subquery
+from django.db.models import Subquery, Count, Window, F
+from django.db.models.functions import DenseRank
 from django.http import JsonResponse
 from django.views import View
 from django.contrib.auth.models import User
@@ -233,7 +235,7 @@ class MarkCardsAsTestPassed(APIView):
 class IncrementReadCards(APIView):
 
     def put(self, request, *args, **kwargs):
-        print('request.data', request.data);
+        print('request.data', request.data)
         user_id = kwargs.get('user_id')
         cards_count = request.data.get('read_cards')
         print('read_cards', cards_count)
@@ -250,7 +252,7 @@ class IncrementReadCards(APIView):
             if cards_count <= 0:
                 raise ValueError("The cards count must be a positive integer.")
         except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': str(e)}, status=status.HTTP_200_OK)
 
         try:
             user = CustomUser.objects.get(id=user_id)
@@ -325,3 +327,68 @@ class SavedCards(APIView):
             return Response({'error': 'User does not exist'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': 'An unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UsersView(APIView):
+
+    def get(self, request, *args, **kwargs):
+        sort_by = request.query_params.get('sort_by')
+        return_all = request.query_params.get('return_all', 'False') == 'True'
+        user_id = request.query_params.get('user_id', None)
+
+        try:
+            if user_id is not None:
+                user_id = int(user_id)
+
+            # Аннотация для подсчета badges_count
+            users_query = CustomUser.objects.annotate(badges_count=Count('earned_badges'))
+
+            if return_all:
+                # Определение поля для сортировки при return_all=True
+                if sort_by in ['xp', 'read_cards', 'badges']:
+                    order_by_field = '-badges_count' if sort_by == 'badges' else f'-{sort_by}'
+                    users_query = users_query.order_by(order_by_field)
+
+                users_data = UserSerializer(users_query, many=True).data
+            else:
+                if sort_by not in ['xp', 'read_cards', 'badges']:
+                    return Response({'error': 'Invalid sort parameter'}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Определение поля для сортировки
+                order_by_field = '-badges_count' if sort_by == 'badges' else f'-{sort_by}'
+                users = users_query.order_by(order_by_field)
+                top_users = list(users[:3])
+
+                # Определение ранга текущего пользователя
+                current_user_rank = None
+                if user_id is not None:
+                    current_user = users_query.filter(id=user_id).first()
+                    if current_user:
+                        if sort_by == 'badges':
+                            user_value = current_user.badges_count
+                            field_for_rank = 'badges_count'
+                        else:
+                            user_value = getattr(current_user, sort_by)
+                            field_for_rank = sort_by
+
+                        current_user_rank = CustomUser.objects.annotate(badges_count=Count('earned_badges')).filter(**{f'{field_for_rank}__gte': user_value}).count()
+
+                        if not any(user.id == user_id for user in top_users):
+                            top_users.append(current_user)
+
+                users_data = [
+                    {**UserSerializer(user).data, 'user_rank': i + 1}
+                    for i, user in enumerate(top_users)
+                ]
+
+                # Добавление ранга текущего пользователя
+                if current_user_rank is not None:
+                    for user_data in users_data:
+                        if user_data['id'] == user_id:
+                            user_data['user_rank'] = current_user_rank
+                            break
+
+            return Response(users_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

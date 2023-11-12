@@ -10,8 +10,8 @@ class CustomUser(AbstractUser):
     saved_cards = models.ManyToManyField('Card', blank=True, related_name='users_saved')
     read_cards = models.PositiveIntegerField(default=0)
     topics = models.ManyToManyField('Topic', blank=True, related_name='users_interested')
-    groups = models.ManyToManyField(Group, related_name="customuser_groups")
-    user_permissions = models.ManyToManyField(Permission, related_name="customuser_user_permissions")
+    groups = models.ManyToManyField(Group, related_name="customuser_groups", blank=True)
+    user_permissions = models.ManyToManyField(Permission, related_name="customuser_user_permissions", blank=True)
 
 
 class Topic(models.Model):
@@ -95,3 +95,4 @@ class Leaderboard(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='leaderboard_entries')
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
     rank = models.PositiveIntegerField()
+
