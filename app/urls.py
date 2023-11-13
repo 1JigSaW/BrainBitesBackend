@@ -6,7 +6,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 from .views import CheckUsernameUniqueView, GetAllTopicsView, CreateUserView, GetUserStatsView, UpdateUserTopicsView, \
     CardListView, QuizListView, MarkCardsAsTestPassed, IncrementReadCards, SaveCard, SavedCards, UsersView, \
-    SaveAnswersView, UserBadgeProgressView
+    SaveAnswersView, UserBadgeProgressView, CheckUserAchievementsView
 
 urlpatterns = [
     path('check_unique/<str:username>/', CheckUsernameUniqueView.as_view(), name='check-username-unique'),
@@ -23,6 +23,7 @@ urlpatterns = [
     path('users_filter/', UsersView.as_view(), name='users'),
     path('update-user-xp/', SaveAnswersView.as_view(), name='update-user-xp'),
     path('user-badge-progress/', UserBadgeProgressView.as_view(), name='user-badge-progress'),
+    path('check-achievements/', CheckUserAchievementsView.as_view(), name='check-achievements'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

@@ -256,7 +256,7 @@ class IncrementReadCards(APIView):
 
         try:
             user = CustomUser.objects.get(id=user_id)
-            user.read_cards += cards_count
+            user.read_cards = cards_count
             user.save()
 
             return Response(
@@ -461,30 +461,42 @@ class UserBadgeProgressView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def check_progress(user_id):
-    # Retrieve the user
-    try:
-        user = CustomUser.objects.get(id=user_id)
-    except CustomUser.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+class CheckUserAchievementsView(APIView):
 
-    # Define progress criteria
-    achievement_criteria = {
-        'read_10_cards': 10,
-        'read_50_cards': 50,
-        # Add more criteria as needed
-    }
+    def get(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id')
+        try:
+            if user_id is None:
+                return Response({'error': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Check if the user has met any new criteria
-    achievements_unlocked = []
-    for achievement, criteria in achievement_criteria.items():
-        if user.read_cards >= criteria and not user.has_achievement(achievement):
-            user.add_achievement(achievement)
-            achievements_unlocked.append(achievement)
+            user = get_object_or_404(CustomUser, id=user_id)
 
-    # Update the user data if necessary
-    if achievements_unlocked:
-        user.save()
+            earned_badges = []
+            all_badges = Badge.objects.all()
+            user_progress = UserBadgeProgress.objects.filter(user=user)
 
-    # Return the achievements unlocked, if any
-    return JsonResponse({'achievements_unlocked': achievements_unlocked})
+            for badge in all_badges:
+                print(badge.criteria)
+                # Используйте метод get() со значением по умолчанию, например, False
+                if badge.criteria.get('read_cards', False):
+                    user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
+                    print('user_progress', user_progress)
+                    user_progress.progress_number = user.read_cards
+                    user_progress.save()
+                elif 'read_specific_topic' in badge.criteria:
+                    # Обработка критерия 'read_specific_topic'
+                    print("Критерий 'read_specific_topic' обнаружен")
+                # progress = user_progress.filter(badge=badge).first()
+                # if progress:
+                #     if self.has_earned_badge(progress.progress, badge.criteria):
+                #         earned_badges.append(badge.name)
+
+            return Response({'earned_badges': earned_badges}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def has_earned_badge(self, user_progress, badge_criteria):
+        # Здесь реализуйте логику проверки соответствия прогресса пользователя критериям значка
+        # Возвращайте True, если пользователь получил значок, иначе False
+        pass
