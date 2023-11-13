@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django import forms
 
-from .models import CustomUser, Topic, Card, Quiz, Badge, Leaderboard, EarnedBadge
+from .models import CustomUser, Topic, Card, Quiz, Badge, Leaderboard, EarnedBadge, UserBadgeProgress
 
 
 @admin.register(CustomUser)
@@ -65,3 +65,10 @@ class EarnedBadgeAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         # Customize the queryset if needed, for example, you can prefetch related objects
         return super().get_queryset(request).select_related('user', 'badge')
+
+
+@admin.register(UserBadgeProgress)
+class UserBadgeProgressAdmin(admin.ModelAdmin):
+    list_display = ['user', 'badge', 'progress']
+    search_fields = ['user__username', 'badge__name']
+    list_filter = ['badge']

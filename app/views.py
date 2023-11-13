@@ -6,13 +6,14 @@ from django.db import transaction, IntegrityError
 from django.db.models import Subquery, Count, Window, F
 from django.db.models.functions import DenseRank
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from django.views import View
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import CustomUser, Topic, ViewedCard, Card, Quiz
+from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
     QuizSerializer
 
@@ -183,7 +184,6 @@ class CardListView(APIView):
         viewed_card_ids = user.viewed_cards.all().values_list('card_id', flat=True)
 
         cards = Card.objects.filter(topic__id__in=user_topics).exclude(id__in=viewed_card_ids)[:limit]
-
 
         ViewedCard.objects.bulk_create(
             [ViewedCard(user=user, card=card) for card in cards],
@@ -371,7 +371,8 @@ class UsersView(APIView):
                             user_value = getattr(current_user, sort_by)
                             field_for_rank = sort_by
 
-                        current_user_rank = CustomUser.objects.annotate(badges_count=Count('earned_badges')).filter(**{f'{field_for_rank}__gte': user_value}).count()
+                        current_user_rank = CustomUser.objects.annotate(badges_count=Count('earned_badges')).filter(
+                            **{f'{field_for_rank}__gte': user_value}).count()
 
                         if not any(user.id == user_id for user in top_users):
                             top_users.append(current_user)
@@ -392,3 +393,98 @@ class UsersView(APIView):
 
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SaveAnswersView(APIView):
+
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        correct_answers_count = request.data.get('correct_answers_count', 0)
+
+        try:
+            if user_id is None or correct_answers_count is None:
+                return Response({'error': 'User ID and Correct Answers Count are required.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            user = CustomUser.objects.filter(id=user_id).first()
+            if not user:
+                return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Assuming each correct answer gives 10 XP, for example
+            xp_to_add = correct_answers_count * 10
+
+            # Update user XP
+            CustomUser.objects.filter(id=user_id).update(xp=F('xp') + xp_to_add)
+
+            # Refresh the user instance to get the updated value
+            user.refresh_from_db()
+
+            return Response({'message': 'XP updated successfully.', 'new_xp': user.xp}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UserBadgeProgressView(APIView):
+
+    def get(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id')
+        try:
+            if user_id is None:
+                return Response({'error': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = get_object_or_404(CustomUser, id=user_id)
+
+            # Получаем все значки и их прогресс для пользователя
+            all_badges = Badge.objects.all()
+            user_progress = UserBadgeProgress.objects.filter(user=user)
+
+            progress_dict = {progress.badge.id: progress for progress in user_progress}
+
+            # Создаём список, включающий полную информацию и прогресс по всем значкам
+            progress_list = []
+            for badge in all_badges:
+                badge_data = {
+                    'name': badge.name,
+                    'description': badge.description,
+                    'image': badge.image.url if badge.image else None,  # Предполагается, что у вас настроен MEDIA_URL
+                    'criteria': badge.criteria,
+                    'progress_number': progress_dict[badge.id].progress_number if badge.id in progress_dict else 0,
+                    'progress': progress_dict[badge.id].progress if badge.id in progress_dict else {}
+                }
+
+                progress_list.append(badge_data)
+
+            return Response({'badge_progress': progress_list}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def check_progress(user_id):
+    # Retrieve the user
+    try:
+        user = CustomUser.objects.get(id=user_id)
+    except CustomUser.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+
+    # Define progress criteria
+    achievement_criteria = {
+        'read_10_cards': 10,
+        'read_50_cards': 50,
+        # Add more criteria as needed
+    }
+
+    # Check if the user has met any new criteria
+    achievements_unlocked = []
+    for achievement, criteria in achievement_criteria.items():
+        if user.read_cards >= criteria and not user.has_achievement(achievement):
+            user.add_achievement(achievement)
+            achievements_unlocked.append(achievement)
+
+    # Update the user data if necessary
+    if achievements_unlocked:
+        user.save()
+
+    # Return the achievements unlocked, if any
+    return JsonResponse({'achievements_unlocked': achievements_unlocked})

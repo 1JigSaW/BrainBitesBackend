@@ -80,6 +80,7 @@ class EarnedBadge(models.Model):
 class UserBadgeProgress(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='badge_progress')
     badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name='user_progress')
+    progress_number = models.PositiveIntegerField(default=0)
     progress = models.JSONField(default=dict)
 
     def __str__(self):
