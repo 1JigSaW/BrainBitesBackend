@@ -13,9 +13,9 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge
+from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
-    QuizSerializer
+    QuizSerializer, EarnedBadgeSerializer
 
 
 class CheckUsernameUniqueView(APIView):
@@ -96,17 +96,19 @@ class GetUserStatsView(APIView):
             earned_badges_count = earned_badges.count()
             topics = user.topics.all()
 
+            earned_badges = user.earned_badges.all()
+            earned_badges_serialized = EarnedBadgeSerializer(earned_badges, many=True).data
+
             user_data = {
                 'username': user.username,
                 'xp': user.xp,
                 'saved_cards_count': saved_cards_count,
-                'read_cards_count': read_cards_count,  # Include read cards count here
+                'read_cards_count': read_cards_count,
                 'earned_badges_count': earned_badges_count,
-                'earned_badges': BadgeSerializer(earned_badges, many=True).data if earned_badges else [],
+                # 'earned_badges': earned_badges_serialized,
                 'topics': TopicSerializer(topics, many=True).data
             }
 
-            # Serialize the data
             serializer = UserStatsSerializer(user_data)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -465,38 +467,81 @@ class CheckUserAchievementsView(APIView):
 
     def get(self, request, *args, **kwargs):
         user_id = request.query_params.get('user_id')
-        try:
-            if user_id is None:
-                return Response({'error': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if user_id is None:
+            return Response({'error': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            user = get_object_or_404(CustomUser, id=user_id)
+        user = get_object_or_404(CustomUser, id=user_id)
 
-            earned_badges = []
-            all_badges = Badge.objects.all()
-            user_progress = UserBadgeProgress.objects.filter(user=user)
+        earned_badges = []
+        all_badges = Badge.objects.all()
+        user_progress = UserBadgeProgress.objects.filter(user=user)
+        print('all_badges', all_badges)
+        for badge in all_badges:
+            print(badge.criteria)
 
-            for badge in all_badges:
-                print(badge.criteria)
-                # Используйте метод get() со значением по умолчанию, например, False
-                if badge.criteria.get('read_cards', False):
-                    user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
-                    print('user_progress', user_progress)
-                    user_progress.progress_number = user.read_cards
-                    user_progress.save()
-                elif 'read_specific_topic' in badge.criteria:
-                    # Обработка критерия 'read_specific_topic'
-                    print("Критерий 'read_specific_topic' обнаружен")
-                # progress = user_progress.filter(badge=badge).first()
-                # if progress:
-                #     if self.has_earned_badge(progress.progress, badge.criteria):
-                #         earned_badges.append(badge.name)
+            # Проверяем, был ли значок уже заработан
+            already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
 
-            return Response({'earned_badges': earned_badges}, status=status.HTTP_200_OK)
+            # Если значок уже заработан, пропускаем его
+            if already_earned:
+                print('already_earned', already_earned)
+                continue
 
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Используйте метод get() со значением по умолчанию, например, False
+            if badge.criteria.get('read_cards', False):
+                print(1)
+                user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
+                print('user_progress', user_progress)
+                user_progress[0].progress_number = user.read_cards
+                user_progress[0].save()
 
-    def has_earned_badge(self, user_progress, badge_criteria):
-        # Здесь реализуйте логику проверки соответствия прогресса пользователя критериям значка
-        # Возвращайте True, если пользователь получил значок, иначе False
-        pass
+                if user_progress[0].progress_number >= badge.criteria['read_cards']:
+                    already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
+                    if not already_earned:
+                        earned_badge, badge_created = EarnedBadge.objects.get_or_create(user=user, badge=badge)
+                        if badge_created:
+                            earned_badges.append({
+                                'name': badge.name,
+                                # Другие поля
+                            })
+            elif 'read_specific_topic' in badge.criteria:
+                user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
+                topic_id = badge.criteria['read_specific_topic']['topic_id']
+                viewed_cards = ViewedCard.objects.filter(user=user, card__topic_id=topic_id)
+                user_progress[0].progress_number = viewed_cards.count()
+                user_progress[0].save()
+
+                if user_progress[0].progress_number >= badge.criteria['read_specific_topic']['count']:
+                    already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
+                    if not already_earned:
+                        earned_badge, badge_created = EarnedBadge.objects.get_or_create(user=user, badge=badge)
+                        if badge_created:
+                            earned_badges.append({
+                                'name': badge.name,
+                                # Другие поля
+                            })
+
+            elif 'quiz_specific_topic' in badge.criteria:
+                user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
+
+                passed_viewed_cards = ViewedCard.objects.filter(
+                    user=user,
+                    test_passed=True,
+                    card__topic_id=badge.criteria["quiz_specific_topic"]["topic_id"]
+                )
+
+                passed_quizzes_count = passed_viewed_cards.values('card').distinct().count()
+                user_progress[0].progress_number = passed_quizzes_count
+                user_progress[0].save()
+
+                if user_progress[0].progress_number >= badge.criteria['quiz_specific_topic']['count']:
+                    already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
+                    if not already_earned:
+                        earned_badge, badge_created = EarnedBadge.objects.get_or_create(user=user, badge=badge)
+                        if badge_created:
+                            earned_badges.append({
+                                'name': badge.name,
+                                # Другие поля
+                            })
+
+        return Response({'earned_badges': earned_badges}, status=status.HTTP_200_OK)

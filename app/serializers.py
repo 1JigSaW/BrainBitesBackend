@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Topic, CustomUser, Card, Subtitle, Quiz
+from .models import Topic, CustomUser, Card, Subtitle, Quiz, EarnedBadge, Badge
 
 
 class TopicSerializer(serializers.ModelSerializer):
@@ -24,9 +24,10 @@ class UserSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class BadgeSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=255)
-    description = serializers.CharField()
+class BadgeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Badge
+        fields = ['name', 'description', 'image']
 
 
 class UserStatsSerializer(serializers.Serializer):
@@ -35,7 +36,7 @@ class UserStatsSerializer(serializers.Serializer):
     saved_cards_count = serializers.IntegerField()
     read_cards_count = serializers.IntegerField()  # Add this field
     earned_badges_count = serializers.IntegerField()
-    earned_badges = BadgeSerializer(many=True)
+    earned_badges = BadgeSerializer(many=True, read_only=True)
     topics = TopicSerializer(many=True)
 
     def validate_xp(self, value):
@@ -58,3 +59,11 @@ class QuizSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = '__all__'
+
+
+class EarnedBadgeSerializer(serializers.ModelSerializer):
+    badge = BadgeSerializer(read_only=True)
+
+    class Meta:
+        model = EarnedBadge
+        fields = ['badge', 'date_earned']
