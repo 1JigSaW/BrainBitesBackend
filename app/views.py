@@ -45,7 +45,6 @@ class CreateUserView(APIView):
     def post(self, request, *args, **kwargs):
         username = request.data.get('username')
         topic_ids = request.data.get('topic_ids', [])
-        print(username, topic_ids)
         if not username:
             return Response(
                 {"error": "Username is required."},
@@ -87,7 +86,6 @@ class CreateUserView(APIView):
 class GetUserStatsView(APIView):
     def get(self, request, *args, **kwargs):
         user_id = kwargs.get('user_id')
-        print('user_id', user_id)
         try:
             user = CustomUser.objects.get(id=user_id)
             saved_cards_count = user.saved_cards.count()
@@ -121,7 +119,6 @@ class GetUserStatsView(APIView):
 
 class UpdateUserTopicsView(APIView):
     def put(self, request, *args, **kwargs):
-        print('request');
         user_id = kwargs.get('user_id')
         topic_ids = request.data.get('topic_ids', [])
 
@@ -193,7 +190,6 @@ class CardListView(APIView):
         )
 
         serializer = CardSerializer(cards, many=True)
-        print('serializer', cards)
         return Response(serializer.data)
 
 
@@ -209,7 +205,6 @@ class QuizListView(APIView):
 
         quizzes = Quiz.objects.filter(card__in=[view.card for view in viewed_cards])
         serializer = QuizSerializer(quizzes, many=True)
-        print('quizzes', quizzes)
 
         return Response(serializer.data)
 
@@ -237,10 +232,8 @@ class MarkCardsAsTestPassed(APIView):
 class IncrementReadCards(APIView):
 
     def put(self, request, *args, **kwargs):
-        print('request.data', request.data)
         user_id = kwargs.get('user_id')
         cards_count = request.data.get('read_cards')
-        print('read_cards', cards_count)
         if not user_id:
             return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -273,7 +266,6 @@ class IncrementReadCards(APIView):
 class SaveCard(APIView):
 
     def put(self, request, *args, **kwargs):
-        print('request.data', request.data)
         user_id = kwargs.get('user_id')
         card_id = request.data.get('card_id')
 
@@ -310,14 +302,12 @@ class SaveCard(APIView):
 class SavedCards(APIView):
 
     def get(self, request, *args, **kwargs):
-        print(2)
         user_id = kwargs.get('user_id')
 
         if not user_id:
             return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            print(1)
             user = CustomUser.objects.get(id=user_id)
             # Get all saved cards for the user
             saved_cards = user.saved_cards.all()
@@ -442,39 +432,46 @@ class UserBadgeProgressView(APIView):
             all_badges = Badge.objects.all()
             user_progress = UserBadgeProgress.objects.filter(user=user)
 
+            earned_badges_ids = EarnedBadge.objects.filter(user=user).values_list('badge', flat=True)
+
             progress_dict = {progress.badge.id: progress for progress in user_progress}
 
-            progress_list = []
+            badges_list = []
             for badge in all_badges:
                 progress_number = progress_dict[badge.id].progress_number if badge.id in progress_dict else 0
                 badge_data = {
+                    'id': badge.id,
                     'name': badge.name,
                     'description': badge.description,
                     'image': badge.image.url if badge.image else None,
                     'criteria': badge.criteria,
                     'result': badge.result,
                     'progress_number': progress_number,
-                    'progress': progress_dict[badge.id].progress if badge.id in progress_dict else {}
+                    'progress': progress_dict[badge.id].progress if badge.id in progress_dict else {},
+                    'is_earned': badge.id in earned_badges_ids
                 }
-                progress_list.append(badge_data)
+                badges_list.append(badge_data)
 
-            progress_list.sort(
-                key=lambda x: (x['progress_number'] == x['result'], -abs(x['result'] - x['progress_number'])))
+            # Объединяем и сортируем список
+            badges_list.sort(
+                key=lambda x: (
+                x['is_earned'], -abs(x['result'] - x['progress_number']) if x['progress_number'] != 0 else float('inf'))
+            )
 
-            # Возвращаем только три значка, которые пользователь почти получил, если установлен параметр top_three
+            # Возвращаем только топ-3, если требуется
             if top_three:
-                progress_list = [badge for badge in progress_list if badge['progress_number'] != badge['result']][:3]
+                badges_list = badges_list[:3]
 
-            return Response({'badge_progress': progress_list}, status=status.HTTP_200_OK)
+            return Response({'badge_progress': badges_list}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
 class CheckUserAchievementsView(APIView):
 
     def get(self, request, *args, **kwargs):
+        print(11111111111111111111111111111111111111)
         user_id = request.query_params.get('user_id')
         if user_id is None:
             return Response({'error': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -484,7 +481,6 @@ class CheckUserAchievementsView(APIView):
         earned_badges = []
         all_badges = Badge.objects.all()
         user_progress = UserBadgeProgress.objects.filter(user=user)
-        print('all_badges', all_badges)
         for badge in all_badges:
             print(badge.criteria)
 
@@ -498,12 +494,10 @@ class CheckUserAchievementsView(APIView):
 
             # Используйте метод get() со значением по умолчанию, например, False
             if badge.criteria.get('read_cards', False):
-                print(1)
                 user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
-                print('user_progress', user_progress)
-                user_progress[0].progress_number = user.read_cards
+                viewed_cards = ViewedCard.objects.filter(user=user, test_passed=True)
+                user_progress[0].progress_number = viewed_cards.count()
                 user_progress[0].save()
-
                 if user_progress[0].progress_number >= badge.criteria['read_cards']:
                     already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
                     if not already_earned:
@@ -516,7 +510,7 @@ class CheckUserAchievementsView(APIView):
             elif 'read_specific_topic' in badge.criteria:
                 user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
                 topic_id = badge.criteria['read_specific_topic']['topic_id']
-                viewed_cards = ViewedCard.objects.filter(user=user, card__topic_id=topic_id)
+                viewed_cards = ViewedCard.objects.filter(user=user, card__topic_id=topic_id, test_passed=True)
                 user_progress[0].progress_number = viewed_cards.count()
                 user_progress[0].save()
 
@@ -552,5 +546,5 @@ class CheckUserAchievementsView(APIView):
                                 'name': badge.name,
                                 # Другие поля
                             })
-
+        print('earned_badges', earned_badges)
         return Response({'earned_badges': earned_badges}, status=status.HTTP_200_OK)
