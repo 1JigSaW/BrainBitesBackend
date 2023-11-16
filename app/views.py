@@ -431,36 +431,45 @@ class UserBadgeProgressView(APIView):
 
     def get(self, request, *args, **kwargs):
         user_id = request.query_params.get('user_id')
+        top_three = request.query_params.get('top_three', 'false').lower() == 'true'
+
         try:
             if user_id is None:
                 return Response({'error': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
             user = get_object_or_404(CustomUser, id=user_id)
 
-            # Получаем все значки и их прогресс для пользователя
             all_badges = Badge.objects.all()
             user_progress = UserBadgeProgress.objects.filter(user=user)
 
             progress_dict = {progress.badge.id: progress for progress in user_progress}
 
-            # Создаём список, включающий полную информацию и прогресс по всем значкам
             progress_list = []
             for badge in all_badges:
+                progress_number = progress_dict[badge.id].progress_number if badge.id in progress_dict else 0
                 badge_data = {
                     'name': badge.name,
                     'description': badge.description,
-                    'image': badge.image.url if badge.image else None,  # Предполагается, что у вас настроен MEDIA_URL
+                    'image': badge.image.url if badge.image else None,
                     'criteria': badge.criteria,
-                    'progress_number': progress_dict[badge.id].progress_number if badge.id in progress_dict else 0,
+                    'result': badge.result,
+                    'progress_number': progress_number,
                     'progress': progress_dict[badge.id].progress if badge.id in progress_dict else {}
                 }
-
                 progress_list.append(badge_data)
+
+            progress_list.sort(
+                key=lambda x: (x['progress_number'] == x['result'], -abs(x['result'] - x['progress_number'])))
+
+            # Возвращаем только три значка, которые пользователь почти получил, если установлен параметр top_three
+            if top_three:
+                progress_list = [badge for badge in progress_list if badge['progress_number'] != badge['result']][:3]
 
             return Response({'badge_progress': progress_list}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 class CheckUserAchievementsView(APIView):

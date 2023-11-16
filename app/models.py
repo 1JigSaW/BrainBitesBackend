@@ -69,6 +69,7 @@ class Badge(models.Model):
     description = models.TextField()
     image = models.ImageField(upload_to='badges/', default='path/to/my/default/image.jpg')
     criteria = models.JSONField(default=dict)
+    result = models.PositiveIntegerField(default=0)
 
 
 class EarnedBadge(models.Model):
