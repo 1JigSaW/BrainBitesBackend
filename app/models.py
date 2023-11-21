@@ -23,6 +23,7 @@ class Topic(models.Model):
 
 class Subtitle(models.Model):
     title = models.CharField(max_length=255)
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='topic')
 
 
 class Card(models.Model):
