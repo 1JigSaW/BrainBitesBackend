@@ -45,6 +45,8 @@ class CreateUserView(APIView):
     def post(self, request, *args, **kwargs):
         username = request.data.get('username')
         topic_ids = request.data.get('topic_ids', [])
+        cards_count = int(request.data.get('cards_count', 10))
+
         if not username:
             return Response(
                 {"error": "Username is required."},
@@ -64,12 +66,18 @@ class CreateUserView(APIView):
                 {"error": "One or more topics do not exist."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+        print(1)
         try:
-            # Create a new user with the provided username and topics
+            # Create a new user with the provided username, topics, and cards count
             with transaction.atomic():
-                user = CustomUser.objects.create(username=username)
+                print(2);
+                user = CustomUser.objects.create(
+                    username=username,
+                    everyday_cards=cards_count
+                )
+                print(user)
                 user.topics.set(topics)
+                print(2)
                 user.save()
 
                 # Serialize the user data
@@ -77,6 +85,7 @@ class CreateUserView(APIView):
                 return Response(user_serializer.data, status=status.HTTP_201_CREATED)
 
         except IntegrityError as e:
+            print(e)
             return Response(
                 {"error": "Failed to create user due to an integrity error."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -455,7 +464,8 @@ class UserBadgeProgressView(APIView):
             # Объединяем и сортируем список
             badges_list.sort(
                 key=lambda x: (
-                x['is_earned'], -abs(x['result'] - x['progress_number']) if x['progress_number'] != 0 else float('inf'))
+                    x['is_earned'],
+                    -abs(x['result'] - x['progress_number']) if x['progress_number'] != 0 else float('inf'))
             )
 
             # Возвращаем только топ-3, если требуется
