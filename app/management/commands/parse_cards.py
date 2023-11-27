@@ -105,7 +105,7 @@ class Command(BaseCommand):
     help = 'Описание вашей команды'
 
     def handle(self, *args, **kwargs):
-        for subtitle_id in range(40, 90):  # Перебираем подтемы от 2 до 39
+        for subtitle_id in range(90, 140):  # Перебираем подтемы от 2 до 39
             for _ in range(20):  # Для каждой подтемы повторяем 20 раз
                 result = create_cards_with_quizzes(1, subtitle_id)
                 self.stdout.write(self.style.SUCCESS(f'Успешно выполнено: {result}'))

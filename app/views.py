@@ -548,3 +548,30 @@ class CheckUserAchievementsView(APIView):
                             })
         print('earned_badges', earned_badges)
         return Response({'earned_badges': earned_badges}, status=status.HTTP_200_OK)
+
+
+class UserTopicProgressView(APIView):
+    def get(self, request, user_id):
+        try:
+            user = CustomUser.objects.get(id=user_id)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        user_topics = Topic.objects.filter(users_interested=user)  # Corrected line
+        topics_data = []
+
+        for topic in user_topics:
+            viewed_cards = ViewedCard.objects.filter(user=user, card__topic=topic)
+            total_viewed = viewed_cards.count()
+            total_cards = Card.objects.filter(topic=topic).count()
+            progress = total_viewed / total_cards if total_cards > 0 else 0
+
+            topics_data.append({
+                'topic_id': topic.id,
+                'topic_name': topic.title,  # Corrected field name from 'name' to 'title'
+                'progress': progress,
+                'viewed_cards': total_viewed,
+                'total_cards': total_cards
+            })
+
+        return JsonResponse({'user_topics': topics_data})
