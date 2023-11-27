@@ -13,7 +13,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge
+from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
     QuizSerializer, EarnedBadgeSerializer
 
@@ -575,3 +575,34 @@ class UserTopicProgressView(APIView):
             })
 
         return JsonResponse({'user_topics': topics_data})
+
+
+class UserSubtitleProgressView(APIView):
+    def get(self, request, topic_id, user_id):
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            topic = Topic.objects.get(id=topic_id)
+        except ObjectDoesNotExist:
+            return Response({"error": "User or Topic not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        cards_in_topic = Card.objects.filter(topic=topic)
+        print('cards_in_topic', cards_in_topic)
+        subtitles = Subtitle.objects.filter(id__in=cards_in_topic.values('subtitle_id')).distinct()
+        subtitle_data = []
+
+        for subtitle in subtitles:
+            cards_in_subtitle = cards_in_topic.filter(subtitle=subtitle)
+            viewed_cards = ViewedCard.objects.filter(user=user, card__in=cards_in_subtitle)
+            total_viewed = viewed_cards.count()
+            total_cards = cards_in_subtitle.count()
+            progress = total_viewed / total_cards if total_cards > 0 else 0
+
+            subtitle_data.append({
+                'subtitle_id': subtitle.id,
+                'subtitle_name': subtitle.title,  # Assuming Subtitle model has a name field
+                'progress': progress,
+                'viewed_cards': total_viewed,
+                'total_cards': total_cards
+            })
+        print(subtitle_data)
+        return JsonResponse({'subtitles_progress': subtitle_data})

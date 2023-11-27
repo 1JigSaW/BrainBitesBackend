@@ -12,6 +12,7 @@ class CustomUser(AbstractUser):
     topics = models.ManyToManyField('Topic', blank=True, related_name='users_interested')
     groups = models.ManyToManyField(Group, related_name="customuser_groups", blank=True)
     user_permissions = models.ManyToManyField(Permission, related_name="customuser_user_permissions", blank=True)
+    everyday_cards = models.PositiveIntegerField(default=10)
 
 
 class Topic(models.Model):
