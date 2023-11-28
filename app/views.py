@@ -202,6 +202,23 @@ class CardListView(APIView):
         return Response(serializer.data)
 
 
+class CardsForSubtitleView(APIView):
+    def get(self, request, subtitle_id, user_id, num_cards):
+        try:
+            subtitle = Subtitle.objects.get(id=subtitle_id)
+            user = CustomUser.objects.get(id=user_id)
+            viewed_cards = ViewedCard.objects.filter(user=user).values_list('card', flat=True)
+
+            cards = Card.objects.filter(subtitle=subtitle).exclude(id__in=viewed_cards)[:num_cards]
+            serializer = CardSerializer(cards, many=True)
+
+            return Response(serializer.data)
+        except Subtitle.DoesNotExist:
+            return Response({"error": "Subtitle not found"}, status=status.HTTP_404_NOT_FOUND)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
 class QuizListView(APIView):
 
     def get(self, request, *args, **kwargs):
