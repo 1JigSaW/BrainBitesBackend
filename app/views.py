@@ -219,6 +219,17 @@ class CardsForSubtitleView(APIView):
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
+class QuizByCardsView(APIView):
+    def get(self, request, *args, **kwargs):
+        card_ids = self.kwargs.get('card_ids').split(',')
+        try:
+            quizzes = Quiz.objects.filter(card__id__in=card_ids).distinct()
+            serializer = QuizSerializer(quizzes, many=True)
+            return Response(serializer.data)
+        except Quiz.DoesNotExist:
+            return Response({"error": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
 class QuizListView(APIView):
 
     def get(self, request, *args, **kwargs):

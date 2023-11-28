@@ -7,7 +7,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from .views import CheckUsernameUniqueView, GetAllTopicsView, CreateUserView, GetUserStatsView, UpdateUserTopicsView, \
     CardListView, QuizListView, MarkCardsAsTestPassed, IncrementReadCards, SaveCard, SavedCards, UsersView, \
     SaveAnswersView, UserBadgeProgressView, CheckUserAchievementsView, UserTopicProgressView, UserSubtitleProgressView, \
-    CardsForSubtitleView
+    CardsForSubtitleView, QuizByCardsView
 
 urlpatterns = [
     path('check_unique/<str:username>/', CheckUsernameUniqueView.as_view(), name='check-username-unique'),
@@ -31,6 +31,7 @@ urlpatterns = [
          name='user_subtitles_progress'
          ),
     path('cards_subtitle/<int:subtitle_id>/<int:user_id>/<int:num_cards>/', CardsForSubtitleView.as_view()),
+    path('quizzes-by-cards/<str:card_ids>/', QuizByCardsView.as_view()),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
