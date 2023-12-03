@@ -678,3 +678,34 @@ class GetQuizzesByCardIdsView(APIView):
 
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkCardsAndViewedQuizzes(APIView):
+
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        card_ids = request.data.get('card_ids')
+
+        if not user_id:
+            return Response({'error': 'User ID must be provided'}, status=400)
+        if not card_ids:
+            return Response({'error': 'Card IDs must be provided'}, status=400)
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+
+        cards = Card.objects.filter(id__in=card_ids)
+        if not cards:
+            return Response({'error': 'No cards found with the provided IDs'}, status=404)
+
+        ViewedCard.objects.bulk_create(
+            [ViewedCard(user=user, card=card) for card in cards],
+            ignore_conflicts=True
+        )
+
+        quizzes = Quiz.objects.filter(card__in=cards)
+        # quizzes.update(test_passed=True)
+
+        return Response({'message': 'Cards marked as viewed and quizzes marked as passed.'}, status=200)
