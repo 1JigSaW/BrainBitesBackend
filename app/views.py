@@ -644,3 +644,37 @@ class UserSubtitleProgressView(APIView):
             })
         print(subtitle_data)
         return JsonResponse({'subtitles_progress': subtitle_data})
+
+
+class GetQuizzesByCardIdsView(APIView):
+
+    def post(self, request, *args, **kwargs):
+        card_ids = request.data.get('card_ids')
+
+        if not card_ids:
+            return Response({'error': 'Card IDs are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            if not all(isinstance(id, int) for id in card_ids):
+                return Response({'error': 'Invalid card ID format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            cards = Card.objects.filter(id__in=card_ids)
+
+            quizzes = Quiz.objects.filter(card__in=cards).select_related('card')
+
+            quizzes_data = []
+            for quiz in quizzes:
+                quiz_data = {
+                    'quiz_id': quiz.id,
+                    'card_id': quiz.card.id,
+                    'question': quiz.question,
+                    'correct_answer': quiz.correct_answer,
+                    'answers': quiz.answers,
+                    'card_title': quiz.card.title
+                }
+                quizzes_data.append(quiz_data)
+
+            return Response({'quizzes': quizzes_data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
