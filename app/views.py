@@ -13,7 +13,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle
+from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
+    UserSubtitle
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
     QuizSerializer, EarnedBadgeSerializer
 
@@ -624,8 +625,13 @@ class UserSubtitleProgressView(APIView):
             return Response({"error": "User or Topic not found."}, status=status.HTTP_404_NOT_FOUND)
 
         cards_in_topic = Card.objects.filter(topic=topic)
-        print('cards_in_topic', cards_in_topic)
+
+        # Получаем все подзаголовки для темы
         subtitles = Subtitle.objects.filter(id__in=cards_in_topic.values('subtitle_id')).distinct()
+
+        # Получаем список купленных пользователем подзаголовков
+        purchased_subtitles = UserSubtitle.objects.filter(user=user).values_list('subtitle', flat=True)
+
         subtitle_data = []
 
         for subtitle in subtitles:
@@ -640,10 +646,15 @@ class UserSubtitleProgressView(APIView):
                 'subtitle_name': subtitle.title,  # Assuming Subtitle model has a name field
                 'progress': progress,
                 'viewed_cards': total_viewed,
-                'total_cards': total_cards
+                'total_cards': total_cards,
+                'is_free': subtitle.is_free,
+                'is_purchased': subtitle.id in purchased_subtitles,  # Добавляем информацию о покупке
+                'cost': subtitle.cost
             })
-        print(subtitle_data)
-        return JsonResponse({'subtitles_progress': subtitle_data})
+
+        sorted_subtitle_data = sorted(subtitle_data, key=lambda x: x['subtitle_id'])
+
+        return JsonResponse({'subtitles_progress': sorted_subtitle_data})
 
 
 class GetQuizzesByCardIdsView(APIView):
@@ -709,3 +720,39 @@ class MarkCardsAndViewedQuizzes(APIView):
         # quizzes.update(test_passed=True)
 
         return Response({'message': 'Cards marked as viewed and quizzes marked as passed.'}, status=200)
+
+
+class SubtopicPurchaseView(APIView):
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        subtitle_id = request.data.get('subtitle_id')
+
+        if not user_id or not subtitle_id:
+            return Response({'error': 'User ID and Subtitle ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            subtitle = Subtitle.objects.get(id=subtitle_id)
+
+            if user.xp >= subtitle.cost:
+                user.xp -= subtitle.cost
+                user.save()
+
+                # Создание нового объекта UserSubtitle
+                user_subtitle, created = UserSubtitle.objects.get_or_create(
+                    user=user,
+                    subtitle=subtitle,
+                    defaults={'cost_in_xp': subtitle.cost}
+                )
+
+                if created:
+                    return Response({'message': 'Subtitle purchased successfully.'}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'error': 'Subtitle already purchased.'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'error': 'Insufficient XP.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Subtitle.DoesNotExist:
+            return Response({'error': 'Subtitle not found'}, status=status.HTTP_404_NOT_FOUND)
