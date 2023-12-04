@@ -4,17 +4,6 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 
 
-class CustomUser(AbstractUser):
-    username = models.CharField(max_length=150, unique=True)
-    xp = models.PositiveIntegerField(default=0)
-    saved_cards = models.ManyToManyField('Card', blank=True, related_name='users_saved')
-    read_cards = models.PositiveIntegerField(default=0)
-    topics = models.ManyToManyField('Topic', blank=True, related_name='users_interested')
-    groups = models.ManyToManyField(Group, related_name="customuser_groups", blank=True)
-    user_permissions = models.ManyToManyField(Permission, related_name="customuser_user_permissions", blank=True)
-    everyday_cards = models.PositiveIntegerField(default=10)
-
-
 class Topic(models.Model):
     title = models.CharField(max_length=255)
 
@@ -25,6 +14,19 @@ class Topic(models.Model):
 class Subtitle(models.Model):
     title = models.CharField(max_length=255)
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='topic')
+    is_free = models.BooleanField(default=False)
+
+
+class CustomUser(AbstractUser):
+    username = models.CharField(max_length=150, unique=True)
+    xp = models.PositiveIntegerField(default=0)
+    saved_cards = models.ManyToManyField('Card', blank=True, related_name='users_saved')
+    read_cards = models.PositiveIntegerField(default=0)
+    topics = models.ManyToManyField('Topic', blank=True, related_name='users_interested')
+    groups = models.ManyToManyField(Group, related_name="customuser_groups", blank=True)
+    user_permissions = models.ManyToManyField(Permission, related_name="customuser_user_permissions", blank=True)
+    everyday_cards = models.PositiveIntegerField(default=10)
+    purchased_subtitles = models.ManyToManyField(Subtitle, through='UserSubtitle', related_name='purchasers')
 
 
 class Card(models.Model):
@@ -99,4 +101,13 @@ class Leaderboard(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='leaderboard_entries')
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
     rank = models.PositiveIntegerField()
+
+
+class UserSubtitle(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_subtitles')
+    subtitle = models.ForeignKey(Subtitle, on_delete=models.CASCADE, related_name='purchased_by_users')
+    cost_in_xp = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"{self.user.username} purchased {self.subtitle.title} for {self.cost_in_xp} XP"
 

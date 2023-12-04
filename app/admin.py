@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django import forms
 
-from .models import CustomUser, Topic, Card, Quiz, Badge, Leaderboard, EarnedBadge, UserBadgeProgress
+from .models import CustomUser, Topic, Card, Quiz, Badge, Leaderboard, EarnedBadge, UserBadgeProgress, UserSubtitle
 
 
 @admin.register(CustomUser)
@@ -72,3 +72,10 @@ class UserBadgeProgressAdmin(admin.ModelAdmin):
     list_display = ['user', 'badge', 'progress']
     search_fields = ['user__username', 'badge__name']
     list_filter = ['badge']
+
+
+@admin.register(UserSubtitle)
+class UserSubtitleAdmin(admin.ModelAdmin):
+    list_display = ('user', 'subtitle', 'cost_in_xp') # Указываем поля, которые нужно отображать
+    search_fields = ('user__username', 'subtitle__title') # Поиск по имени пользователя и названию подзаголовка
+    list_filter = ('subtitle',) # Фильтрация по подзаголовку
