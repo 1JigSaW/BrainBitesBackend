@@ -173,7 +173,6 @@ class CardListView(APIView):
 
     def get(self, request, *args, **kwargs):
         user_id = kwargs.get('user_id')
-
         if not user_id:
             return Response({'error': 'User ID must be provided'}, status=400)
 
@@ -198,7 +197,6 @@ class CardListView(APIView):
             [ViewedCard(user=user, card=card) for card in cards],
             ignore_conflicts=True
         )
-
         serializer = CardSerializer(cards, many=True)
         return Response(serializer.data)
 
@@ -210,10 +208,19 @@ class CardsForSubtitleView(APIView):
             user = CustomUser.objects.get(id=user_id)
             viewed_cards = ViewedCard.objects.filter(user=user).values_list('card', flat=True)
 
-            cards = Card.objects.filter(subtitle=subtitle).exclude(id__in=viewed_cards)[:num_cards]
-            serializer = CardSerializer(cards, many=True)
+            # Retrieve all cards that have not been viewed by the user
+            available_cards = Card.objects.filter(subtitle=subtitle).exclude(id__in=viewed_cards)
+            print(len(Card.objects.filter(subtitle=subtitle)))
+            # If the number of available cards is less than num_cards, use all available cards
+            if available_cards.count() < num_cards:
+                cards = available_cards
+            else:
+                # Otherwise, limit the queryset to num_cards
+                cards = available_cards[:num_cards]
 
+            serializer = CardSerializer(cards, many=True)
             return Response(serializer.data)
+
         except Subtitle.DoesNotExist:
             return Response({"error": "Subtitle not found"}, status=status.HTTP_404_NOT_FOUND)
         except CustomUser.DoesNotExist:
@@ -509,6 +516,18 @@ class UserBadgeProgressView(APIView):
 
 class CheckUserAchievementsView(APIView):
 
+    def get_completed_subtopics_count(self, user):
+        viewed_subtitles = Subtitle.objects.filter(subtitle__viewed_by_users__user=user).distinct()
+        completed_subtitles_count = 0
+
+        for subtitle in viewed_subtitles:
+            total_cards = Card.objects.filter(subtitle=subtitle).count()
+            viewed_cards_count = ViewedCard.objects.filter(user=user, card__subtitle=subtitle).count()
+            if viewed_cards_count >= total_cards:
+                completed_subtitles_count += 1
+
+        return completed_subtitles_count
+
     def get(self, request, *args, **kwargs):
         print(11111111111111111111111111111111111111)
         user_id = request.query_params.get('user_id')
@@ -546,6 +565,20 @@ class CheckUserAchievementsView(APIView):
                                 'name': badge.name,
                                 # Другие поля
                             })
+            elif badge.criteria.get('complete_subtopics', False):
+                completed_subtopics_count = self.get_completed_subtopics_count(user)
+                user_progress, created = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
+                user_progress.progress_number = completed_subtopics_count
+                user_progress.save()
+                if completed_subtopics_count >= badge.criteria['complete_subtopics']:
+                    already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
+                    if not already_earned:
+                        earned_badge, badge_created = EarnedBadge.objects.get_or_create(user=user, badge=badge)
+                        if badge_created:
+                            earned_badges.append({
+                                'name': badge.name,
+                            })
+
             elif 'read_specific_topic' in badge.criteria:
                 user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
                 topic_id = badge.criteria['read_specific_topic']['topic_id']
@@ -560,7 +593,7 @@ class CheckUserAchievementsView(APIView):
                         if badge_created:
                             earned_badges.append({
                                 'name': badge.name,
-                                # Другие поля
+
                             })
 
             elif 'quiz_specific_topic' in badge.criteria:
@@ -640,6 +673,7 @@ class UserSubtitleProgressView(APIView):
             total_viewed = viewed_cards.count()
             total_cards = cards_in_subtitle.count()
             progress = total_viewed / total_cards if total_cards > 0 else 0
+            print('subtitle', subtitle, 'progress', progress, 'total_cards', total_cards, 'total_cards', total_cards)
 
             subtitle_data.append({
                 'subtitle_id': subtitle.id,
@@ -716,8 +750,8 @@ class MarkCardsAndViewedQuizzes(APIView):
             ignore_conflicts=True
         )
 
-        quizzes = Quiz.objects.filter(card__in=cards)
-        # quizzes.update(test_passed=True)
+        quizzes = ViewedCard.objects.filter(card__in=cards)
+        quizzes.update(test_passed=True)
 
         return Response({'message': 'Cards marked as viewed and quizzes marked as passed.'}, status=200)
 
