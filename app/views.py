@@ -528,6 +528,23 @@ class CheckUserAchievementsView(APIView):
 
         return completed_subtitles_count
 
+    def get_completed_topics_count(self, user):
+        # Logic to determine the number of completed topics
+        # This is just a placeholder logic. Adjust according to your actual criteria
+        completed_topics_count = 0
+        for topic in Topic.objects.all():
+            if self.is_topic_completed(user, topic):
+                completed_topics_count += 1
+        return completed_topics_count
+
+    def is_topic_completed(self, user, topic):
+        # Determine if a topic is completed by the user
+        # Placeholder logic, modify as per your criteria
+        for subtitle in topic.topic.all():
+            if not ViewedCard.objects.filter(user=user, card__subtitle=subtitle).exists():
+                return False
+        return True
+
     def get(self, request, *args, **kwargs):
         print(11111111111111111111111111111111111111)
         user_id = request.query_params.get('user_id')
@@ -571,6 +588,21 @@ class CheckUserAchievementsView(APIView):
                 user_progress.progress_number = completed_subtopics_count
                 user_progress.save()
                 if completed_subtopics_count >= badge.criteria['complete_subtopics']:
+                    already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
+                    if not already_earned:
+                        earned_badge, badge_created = EarnedBadge.objects.get_or_create(user=user, badge=badge)
+                        if badge_created:
+                            earned_badges.append({
+                                'name': badge.name,
+                            })
+
+            elif 'complete_topic' in badge.criteria:
+                completed_topics_count = self.get_completed_topics_count(user)
+                user_progress, created = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
+                user_progress.progress_number = completed_topics_count
+                user_progress.save()
+
+                if completed_topics_count >= badge.criteria['complete_topic']:
                     already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
                     if not already_earned:
                         earned_badge, badge_created = EarnedBadge.objects.get_or_create(user=user, badge=badge)
