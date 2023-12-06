@@ -48,7 +48,8 @@ class ViewedCard(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='viewed_cards')
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name='viewed_by_users')
     date_viewed = models.DateTimeField(auto_now_add=True)
-    test_passed = models.BooleanField(default=False)  # Новое поле для отслеживания прохождения теста
+    test_passed = models.BooleanField(default=False)
+    correct = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('user', 'card')
