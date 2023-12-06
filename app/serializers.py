@@ -38,6 +38,7 @@ class UserStatsSerializer(serializers.Serializer):
     earned_badges_count = serializers.IntegerField()
     earned_badges = BadgeSerializer(many=True, read_only=True)
     topics = TopicSerializer(many=True)
+    avatar_url = serializers.CharField(max_length=300)
 
     def validate_xp(self, value):
         # You can add custom validation for experience points here

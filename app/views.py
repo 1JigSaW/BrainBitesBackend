@@ -47,6 +47,7 @@ class CreateUserView(APIView):
         username = request.data.get('username')
         topic_ids = request.data.get('topic_ids', [])
         cards_count = int(request.data.get('cards_count', 10))
+        avatar_url = request.data.get('avatar_url')
 
         if not username:
             return Response(
@@ -71,10 +72,11 @@ class CreateUserView(APIView):
         try:
             # Create a new user with the provided username, topics, and cards count
             with transaction.atomic():
-                print(2);
+                print(2)
                 user = CustomUser.objects.create(
                     username=username,
-                    everyday_cards=cards_count
+                    everyday_cards=cards_count,
+                    avatar_url=avatar_url,
                 )
                 print(user)
                 user.topics.set(topics)
@@ -110,13 +112,14 @@ class GetUserStatsView(APIView):
             user_data = {
                 'username': user.username,
                 'xp': user.xp,
+                'avatar_url': user.avatar_url,
                 'saved_cards_count': saved_cards_count,
                 'read_cards_count': read_cards_count,
                 'earned_badges_count': earned_badges_count,
                 # 'earned_badges': earned_badges_serialized,
                 'topics': TopicSerializer(topics, many=True).data
             }
-
+            print(user_data)
             serializer = UserStatsSerializer(user_data)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
