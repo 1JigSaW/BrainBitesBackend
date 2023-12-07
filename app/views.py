@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
-    UserSubtitle
+    UserSubtitle, UserQuizStatistics
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
     QuizSerializer, EarnedBadgeSerializer
 
@@ -585,6 +585,22 @@ class CheckUserAchievementsView(APIView):
                                 'name': badge.name,
                                 # Другие поля
                             })
+            elif 'correct_quiz_answers' in badge.criteria:
+                user_quiz_stats = UserQuizStatistics.objects.filter(user=user).first()
+                correct_answers_count = user_quiz_stats.correct_attempts if user_quiz_stats else 0
+                user_progress, created = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
+                user_progress.progress_number = correct_answers_count
+                user_progress.save()
+
+                if correct_answers_count >= badge.criteria['correct_quiz_answers']:
+                    already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
+                    if not already_earned:
+                        earned_badge, badge_created = EarnedBadge.objects.get_or_create(user=user, badge=badge)
+                        if badge_created:
+                            earned_badges.append({
+                                'name': badge.name,
+                                # Другие поля
+                            })
             elif badge.criteria.get('complete_subtopics', False):
                 completed_subtopics_count = self.get_completed_subtopics_count(user)
                 user_progress, created = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
@@ -759,6 +775,7 @@ class GetQuizzesByCardIdsView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 class MarkCardsAndViewedQuizzes(APIView):
 
     def post(self, request, *args, **kwargs):
@@ -790,7 +807,6 @@ class MarkCardsAndViewedQuizzes(APIView):
                 viewed_card.save()
 
         return Response({'message': 'Cards marked as viewed and quizzes updated.'}, status=200)
-
 
 
 class SubtopicPurchaseView(APIView):
