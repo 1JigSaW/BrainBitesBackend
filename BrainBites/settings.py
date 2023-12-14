@@ -20,7 +20,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 dotenv.load_dotenv(dotenv_path=BASE_DIR / ".env")
 print(BASE_DIR)
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
@@ -28,14 +27,11 @@ print(BASE_DIR)
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
 AUTH_USER_MODEL = 'app.CustomUser'
-
-
-
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -81,7 +77,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'BrainBites.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -95,8 +90,6 @@ DATABASES = {
         'PORT': os.environ.get('DATABASE_PORT'),
     }
 }
-
-
 
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -115,7 +108,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
@@ -127,12 +119,9 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-
 CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
@@ -140,7 +129,6 @@ SESSION_COOKIE_SECURE = True
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -155,6 +143,3 @@ CLOUDINARY_STORAGE = {
 print(f"Cloudinary config: {CLOUDINARY_STORAGE}")
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-
-
-
