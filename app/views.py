@@ -63,6 +63,7 @@ class CreateUserView(APIView):
 
         # Validate that the topic IDs are valid
         topics = Topic.objects.filter(id__in=topic_ids)
+        print('topics', topics)
         if len(topics) != len(topic_ids):
             return Response(
                 {"error": "One or more topics do not exist."},
