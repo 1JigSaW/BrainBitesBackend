@@ -48,7 +48,7 @@ class CreateUserView(APIView):
         topic_ids = request.data.get('topic_ids', [])
         cards_count = int(request.data.get('cards_count', 10))
         avatar_url = request.data.get('avatar_url')
-
+        print('topic_ids', topic_ids)
         if not username:
             return Response(
                 {"error": "Username is required."},
