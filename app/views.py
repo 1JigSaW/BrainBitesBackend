@@ -786,28 +786,31 @@ class MarkCardsAndViewedQuizzes(APIView):
         print('correct_answer_ids', correct_answer_ids)
         print('card_ids', card_ids)
 
-        if not user_id or not card_ids:
-            return Response({'error': 'User ID and Card IDs must be provided'}, status=400)
+        if not user_id:
+            return Response({'error': 'User ID must be provided'}, status=400)
+        if not card_ids:
+            return Response({'error': 'Card IDs must be provided'}, status=400)
 
         try:
             user = CustomUser.objects.get(id=user_id)
         except CustomUser.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
 
-        # Создание или обновление ViewedCard
-        for card_id in card_ids:
-            viewed_card, created = ViewedCard.objects.get_or_create(
-                user=user,
-                card_id=card_id,
-                defaults={'test_passed': True, 'correct': card_id in correct_answer_ids}
-            )
-            # Обновление записей, если они уже существуют
-            if not created:
-                viewed_card.test_passed = card_id in correct_answer_ids
-                viewed_card.correct = card_id in correct_answer_ids
-                viewed_card.save()
+        # Обработка только правильно отвеченных карт
+        for card_id in correct_answer_ids:
+            if card_id in card_ids:  # Убедимся, что карта действительно предназначена для обработки
+                viewed_card, created = ViewedCard.objects.get_or_create(
+                    user=user,
+                    card_id=card_id,
+                    defaults={'test_passed': True, 'correct': True}
+                )
+                # Если запись уже существует, обновим ее, хотя в данном случае это может быть не нужно
+                if not created:
+                    viewed_card.test_passed = True
+                    viewed_card.correct = True
+                    viewed_card.save()
 
-        return Response({'message': 'Cards marked as viewed and quizzes updated.'}, status=200)
+        return Response({'message': 'Correctly answered cards marked as viewed.'}, status=200)
 
 
 class SubtopicPurchaseView(APIView):
