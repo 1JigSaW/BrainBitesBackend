@@ -38,7 +38,7 @@ class Card(models.Model):
     content = models.TextField()
     source = models.CharField(max_length=255)
     read_count = models.PositiveIntegerField(default=0)  # Tracks how many times the card has been read
-    image = CloudinaryField('image')
+    image = CloudinaryField('image', blank=True, null=True))
 
     def __str__(self):
         return f"{self.title} {self.topic.title}"
