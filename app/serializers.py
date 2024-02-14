@@ -34,7 +34,8 @@ class UserStatsSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     xp = serializers.IntegerField()
     saved_cards_count = serializers.IntegerField()
-    read_cards_count = serializers.IntegerField()  # Add this field
+    lives = serializers.IntegerField()
+    read_cards_count = serializers.IntegerField()
     earned_badges_count = serializers.IntegerField()
     earned_badges = BadgeSerializer(many=True, read_only=True)
     topics = TopicSerializer(many=True)

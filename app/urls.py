@@ -7,7 +7,8 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from .views import CheckUsernameUniqueView, GetAllTopicsView, CreateUserView, GetUserStatsView, UpdateUserTopicsView, \
     CardListView, QuizListView, MarkCardsAsTestPassed, IncrementReadCards, SaveCard, SavedCards, UsersView, \
     SaveAnswersView, UserBadgeProgressView, CheckUserAchievementsView, UserTopicProgressView, UserSubtitleProgressView, \
-    CardsForSubtitleView, QuizByCardsView, GetQuizzesByCardIdsView, MarkCardsAndViewedQuizzes, SubtopicPurchaseView
+    CardsForSubtitleView, QuizByCardsView, GetQuizzesByCardIdsView, MarkCardsAndViewedQuizzes, SubtopicPurchaseView, \
+    GetLivesView, LoseLifeView
 
 urlpatterns = [
     path('check_unique/<str:username>/', CheckUsernameUniqueView.as_view(), name='check-username-unique'),
@@ -35,6 +36,8 @@ urlpatterns = [
     path('get-quizzes-by-card-ids/', GetQuizzesByCardIdsView.as_view(), name='get_quizzes_by_card_ids'),
     path('mark-cards-as-viewed-and-update-quizzes/', MarkCardsAndViewedQuizzes.as_view(), name='mark-cards-and-viewed-quizzes'),
     path('purchase-subtitle/', SubtopicPurchaseView.as_view()),
+    path('get-lives/', GetLivesView.as_view()),
+    path('lose-life/', LoseLifeView.as_view()),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

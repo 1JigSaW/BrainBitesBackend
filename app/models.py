@@ -2,6 +2,7 @@ from cloudinary.models import CloudinaryField
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
+from django.utils import timezone
 
 
 class Topic(models.Model):
@@ -29,6 +30,8 @@ class CustomUser(AbstractUser):
     everyday_cards = models.PositiveIntegerField(default=10)
     purchased_subtitles = models.ManyToManyField(Subtitle, through='UserSubtitle', related_name='purchasers')
     avatar_url = models.URLField(max_length=200, blank=True)
+    lives = models.PositiveIntegerField(default=5)
+    last_life_lost_time = models.DateTimeField(default=timezone.now)
 
 
 class Card(models.Model):

@@ -7,6 +7,7 @@ from django.db.models import Subquery, Count, Window, F
 from django.db.models.functions import DenseRank
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.views import View
 from django.contrib.auth.models import User
 from rest_framework import status
@@ -117,6 +118,7 @@ class GetUserStatsView(APIView):
                 'saved_cards_count': saved_cards_count,
                 'read_cards_count': read_cards_count,
                 'earned_badges_count': earned_badges_count,
+                'lives': user.lives,
                 # 'earned_badges': earned_badges_serialized,
                 'topics': TopicSerializer(topics, many=True).data
             }
@@ -847,3 +849,32 @@ class SubtopicPurchaseView(APIView):
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         except Subtitle.DoesNotExist:
             return Response({'error': 'Subtitle not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class LoseLifeView(APIView):
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            if user.lives > 0:
+                user.lives -= 1
+                user.last_life_lost_time = timezone.now()
+                user.save()
+                return Response({"message": "Life lost. Please be careful next time.", "lives_remaining": user.lives}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "No lives left. Please wait for them to regenerate or purchase more lives."}, status=status.HTTP_400_BAD_REQUEST)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class GetLivesView(APIView):
+    def get(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({"error": "User ID must be provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            return Response({"lives_remaining": user.lives}, status=status.HTTP_200_OK)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
