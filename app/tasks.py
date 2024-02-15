@@ -1,4 +1,4 @@
-from celery_config import shared_task
+from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
 from .models import CustomUser
@@ -6,11 +6,10 @@ from .models import CustomUser
 
 @shared_task
 def restore_lives():
-    for user in CustomUser.objects.filter(lives__lt=5):
-        if timezone.now() - user.last_life_lost_time >= timedelta(minutes=1):
-            user.lives += 1
-            if user.lives == 5:
-                user.last_life_lost_time = None
-            else:
-                user.last_life_lost_time = timezone.now()
-            user.save()
+    now = timezone.now()
+    minute_ago = now - timedelta(minutes=1)
+    users_to_restore = CustomUser.objects.filter(last_life_lost_time__lte=minute_ago, lives__lt=5)
+
+    for user in users_to_restore:
+        user.lives += 1
+        user.save()
