@@ -33,12 +33,13 @@ ALLOWED_HOSTS = ['*']
 
 AUTH_USER_MODEL = 'app.CustomUser'
 
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_BROKER_URL = os.environ.get('REDIS')
+CELERY_RESULT_BACKEND = os.environ.get('REDIS')
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
 
 from celery.schedules import crontab
 
