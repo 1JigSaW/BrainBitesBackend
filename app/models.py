@@ -17,6 +17,7 @@ class Subtitle(models.Model):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='topic')
     is_free = models.BooleanField(default=False)
     cost = models.PositiveIntegerField(default=200)
+    exist = models.BooleanField(default=True)
 
 
 class CustomUser(AbstractUser):
