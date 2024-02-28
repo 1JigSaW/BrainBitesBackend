@@ -16,6 +16,7 @@ class Subtitle(models.Model):
     title = models.CharField(max_length=255)
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='topic')
     is_free = models.BooleanField(default=False)
+    image = CloudinaryField('image_subtitle', blank=True, null=True)
     cost = models.PositiveIntegerField(default=200)
     exist = models.BooleanField(default=True)
 
