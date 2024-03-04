@@ -1,6 +1,8 @@
 import random
 import string
 
+from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction, IntegrityError
 from django.db.models import Subquery, Count, Window, F
@@ -11,6 +13,7 @@ from django.utils import timezone
 from django.views import View
 from django.contrib.auth.models import User
 from rest_framework import status
+from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -43,16 +46,76 @@ def generate_random_username(length=8):
     return ''.join(random.choice(letters) for i in range(length))
 
 
+# class CreateUserView(APIView):
+#     def post(self, request, *args, **kwargs):
+#         username = request.data.get('username')
+#         topic_ids = request.data.get('topic_ids', [])
+#         cards_count = int(request.data.get('cards_count', 10))
+#         avatar_url = request.data.get('avatar_url')
+#         print('topic_ids', topic_ids)
+#         if not username:
+#             return Response(
+#                 {"error": "Username is required."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#
+#         if CustomUser.objects.filter(username=username).exists():
+#             return Response(
+#                 {"error": "Username already exists."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#
+#         # Validate that the topic IDs are valid
+#         topics = Topic.objects.filter(id__in=topic_ids)
+#         print('topics', topics)
+#         if len(topics) != len(topic_ids):
+#             return Response(
+#                 {"error": "One or more topics do not exist."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#         print(1)
+#         try:
+#             # Create a new user with the provided username, topics, and cards count
+#             with transaction.atomic():
+#                 print(2)
+#                 user = CustomUser.objects.create(
+#                     username=username,
+#                     everyday_cards=cards_count,
+#                     avatar_url=avatar_url,
+#                 )
+#                 print(user)
+#                 user.topics.set(topics)
+#                 print(2)
+#                 user.save()
+#
+#                 # Serialize the user data
+#                 user_serializer = UserSerializer(user)
+#                 return Response(user_serializer.data, status=status.HTTP_201_CREATED)
+#
+#         except IntegrityError as e:
+#             print(e)
+#             return Response(
+#                 {"error": "Failed to create user due to an integrity error."},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+
 class CreateUserView(APIView):
     def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
         username = request.data.get('username')
-        topic_ids = request.data.get('topic_ids', [])
+        password = request.data.get('password')
         cards_count = int(request.data.get('cards_count', 10))
-        avatar_url = request.data.get('avatar_url')
-        print('topic_ids', topic_ids)
-        if not username:
+
+        if not email or not username or not password:
             return Response(
-                {"error": "Username is required."},
+                {"error": "Email, username, and password are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if CustomUser.objects.filter(email=email).exists():
+            return Response(
+                {"error": "Email already exists."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -62,27 +125,13 @@ class CreateUserView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate that the topic IDs are valid
-        topics = Topic.objects.filter(id__in=topic_ids)
-        print('topics', topics)
-        if len(topics) != len(topic_ids):
-            return Response(
-                {"error": "One or more topics do not exist."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        print(1)
         try:
-            # Create a new user with the provided username, topics, and cards count
             with transaction.atomic():
-                print(2)
                 user = CustomUser.objects.create(
                     username=username,
-                    everyday_cards=cards_count,
-                    avatar_url=avatar_url,
+                    email=email,
+                    password=make_password(password),
                 )
-                print(user)
-                user.topics.set(topics)
-                print(2)
                 user.save()
 
                 # Serialize the user data
@@ -90,10 +139,32 @@ class CreateUserView(APIView):
                 return Response(user_serializer.data, status=status.HTTP_201_CREATED)
 
         except IntegrityError as e:
-            print(e)
             return Response(
                 {"error": "Failed to create user due to an integrity error."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class LoginUserView(APIView):
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response(
+                {"error": "Email and password are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = authenticate(request, username=email, password=password)
+
+        if user:
+            token, created = Token.objects.get_or_create(user=user)
+            return Response({"token": token.key}, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {"error": "Invalid credentials."},
+                status=status.HTTP_401_UNAUTHORIZED
             )
 
 
@@ -860,9 +931,11 @@ class LoseLifeView(APIView):
                 user.lives -= 1
                 user.last_life_lost_time = timezone.now()
                 user.save()
-                return Response({"message": "Life lost. Please be careful next time.", "lives_remaining": user.lives}, status=status.HTTP_200_OK)
+                return Response({"message": "Life lost. Please be careful next time.", "lives_remaining": user.lives},
+                                status=status.HTTP_200_OK)
             else:
-                return Response({"error": "No lives left. Please wait for them to regenerate or purchase more lives."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "No lives left. Please wait for them to regenerate or purchase more lives."},
+                                status=status.HTTP_400_BAD_REQUEST)
         except CustomUser.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 

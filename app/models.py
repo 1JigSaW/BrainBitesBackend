@@ -23,6 +23,7 @@ class Subtitle(models.Model):
 
 class CustomUser(AbstractUser):
     username = models.CharField(max_length=150, unique=True)
+    email = models.EmailField(max_length=254, unique=True, blank=False, null=False)
     xp = models.PositiveIntegerField(default=0)
     saved_cards = models.ManyToManyField('Card', blank=True, related_name='users_saved')
     read_cards = models.PositiveIntegerField(default=0)
