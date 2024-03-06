@@ -120,3 +120,23 @@ class UserSubtitle(models.Model):
     def __str__(self):
         return f"{self.user.username} purchased {self.subtitle.title} for {self.cost_in_xp} XP"
 
+
+class UserStreak(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='streaks')
+    current_streak = models.PositiveIntegerField(default=0)
+    longest_streak = models.PositiveIntegerField(default=0)
+    last_streak_date = models.DateField(null=True, blank=True)
+
+    def increment_streak(self):
+        today = timezone.localdate()
+        if self.last_streak_date == today - timezone.timedelta(days=1):
+            self.current_streak += 1
+        elif self.last_streak_date != today:
+            self.current_streak = 1
+
+        if self.current_streak > self.longest_streak:
+            self.longest_streak = self.current_streak
+
+        self.last_streak_date = today
+        self.save()
+

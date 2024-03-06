@@ -102,6 +102,7 @@ def generate_random_username(length=8):
 
 class CreateUserView(APIView):
     def post(self, request, *args, **kwargs):
+
         email = request.data.get('email')
         username = request.data.get('username')
         password = request.data.get('password')
@@ -131,10 +132,10 @@ class CreateUserView(APIView):
                     username=username,
                     email=email,
                     password=make_password(password),
+                    everyday_cards=cards_count,
                 )
                 user.save()
 
-                # Serialize the user data
                 user_serializer = UserSerializer(user)
                 return Response(user_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -155,15 +156,16 @@ class LoginUserView(APIView):
                 {"error": "Email and password are required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+        print(email, password)
         user = authenticate(request, username=email, password=password)
 
         if user:
+            user_serializer = UserSerializer(user)
             token, created = Token.objects.get_or_create(user=user)
-            return Response({"token": token.key}, status=status.HTTP_200_OK)
+            return Response({"token": token.key, "user": user_serializer.data}, status=status.HTTP_200_OK)
         else:
             return Response(
-                {"error": "Invalid credentials."},
+                {"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
