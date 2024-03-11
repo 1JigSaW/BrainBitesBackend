@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
-    UserSubtitle, UserQuizStatistics
+    UserSubtitle, UserQuizStatistics, UserStreak
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
     QuizSerializer, EarnedBadgeSerializer
 
@@ -134,6 +134,10 @@ class CreateUserView(APIView):
                     password=make_password(password),
                     everyday_cards=cards_count,
                 )
+
+                topics = Topic.objects.all()
+                user.topics.set(topics)
+
                 user.save()
 
                 user_serializer = UserSerializer(user)
@@ -765,12 +769,15 @@ class UserTopicProgressView(APIView):
             total_cards = Card.objects.filter(topic=topic).count()
             progress = total_viewed / total_cards if total_cards > 0 else 0
 
+            image_url = topic.image.url if hasattr(topic.image, 'url') else None
+
             topics_data.append({
                 'topic_id': topic.id,
                 'topic_name': topic.title,  # Corrected field name from 'name' to 'title'
                 'progress': progress,
                 'viewed_cards': total_viewed,
-                'total_cards': total_cards
+                'total_cards': total_cards,
+                'image': image_url,
             })
 
         return JsonResponse({'user_topics': topics_data})
@@ -786,10 +793,8 @@ class UserSubtitleProgressView(APIView):
 
         cards_in_topic = Card.objects.filter(topic=topic)
 
-        # Получаем все подзаголовки для темы
         subtitles = Subtitle.objects.filter(id__in=cards_in_topic.values('subtitle_id')).distinct()
 
-        # Получаем список купленных пользователем подзаголовков
         purchased_subtitles = UserSubtitle.objects.filter(user=user).values_list('subtitle', flat=True)
 
         subtitle_data = []
@@ -951,5 +956,19 @@ class GetLivesView(APIView):
         try:
             user = CustomUser.objects.get(id=user_id)
             return Response({"lives_remaining": user.lives}, status=status.HTTP_200_OK)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class GetCurrentStreakView(APIView):
+    def get(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({"error": "User ID must be provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            user_streak, created = UserStreak.objects.get_or_create(user=user)
+            return Response({"current_streak": user_streak.current_streak}, status=status.HTTP_200_OK)
         except CustomUser.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
