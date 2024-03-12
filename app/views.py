@@ -281,6 +281,7 @@ class CardListView(APIView):
             ignore_conflicts=True
         )
         serializer = CardSerializer(cards, many=True)
+
         return Response(serializer.data)
 
 
