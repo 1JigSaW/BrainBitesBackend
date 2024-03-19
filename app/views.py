@@ -14,6 +14,7 @@ from django.views import View
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -456,21 +457,24 @@ class UsersView(APIView):
         sort_by = request.query_params.get('sort_by')
         return_all = request.query_params.get('return_all', 'False') == 'True'
         user_id = request.query_params.get('user_id', None)
+        print(sort_by, return_all, user_id)
 
         try:
             if user_id is not None:
                 user_id = int(user_id)
 
             # Аннотация для подсчета badges_count
-            users_query = CustomUser.objects.annotate(badges_count=Count('earned_badges'))
+            users_query = CustomUser.objects.annotate(badges_count=Count('xp'))
 
             if return_all:
                 # Определение поля для сортировки при return_all=True
                 if sort_by in ['xp', 'read_cards', 'badges']:
                     order_by_field = '-badges_count' if sort_by == 'badges' else f'-{sort_by}'
-                    users_query = users_query.order_by(order_by_field)
+                    users_query = users_query.filter(xp__gt=0).order_by(order_by_field)
 
                 users_data = UserSerializer(users_query, many=True).data
+
+                print('users_data', users_data)
             else:
                 if sort_by not in ['xp', 'read_cards', 'badges']:
                     return Response({'error': 'Invalid sort parameter'}, status=status.HTTP_400_BAD_REQUEST)
@@ -492,7 +496,7 @@ class UsersView(APIView):
                             user_value = getattr(current_user, sort_by)
                             field_for_rank = sort_by
 
-                        current_user_rank = CustomUser.objects.annotate(badges_count=Count('earned_badges')).filter(
+                        current_user_rank = CustomUser.objects.annotate(badges_count=Count('xp')).filter(
                             **{f'{field_for_rank}__gte': user_value}).count()
 
                         if not any(user.id == user_id for user in top_users):
@@ -960,16 +964,49 @@ class GetLivesView(APIView):
         except CustomUser.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
+class LogoutUserView(APIView):
+    permission_classes = [IsAuthenticated]
 
-class GetCurrentStreakView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            with transaction.atomic():
+                token = Token.objects.get(user=request.user)
+                token.delete()
+
+                return Response({"success": "Successfully logged out."}, status=status.HTTP_200_OK)
+        except Token.DoesNotExist:
+            return Response({"error": "You are not logged in."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class UpdateStreakView(APIView):
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({"error": "User ID must be provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_streak = get_object_or_404(UserStreak, user_id=user_id)
+        streak_broken = user_streak.update_streak()
+
+        if streak_broken:
+            message = "Streak was broken, but now it's started again!"
+        else:
+            message = "Streak updated successfully."
+
+        return Response({"message": message, "current_streak": user_streak.current_streak,
+                         "longest_streak": user_streak.longest_streak}, status=status.HTTP_200_OK)
+
+
+class GetStreakView(APIView):
     def get(self, request, *args, **kwargs):
         user_id = request.query_params.get('user_id')
         if not user_id:
             return Response({"error": "User ID must be provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            user = CustomUser.objects.get(id=user_id)
-            user_streak, created = UserStreak.objects.get_or_create(user=user)
-            return Response({"current_streak": user_streak.current_streak}, status=status.HTTP_200_OK)
-        except CustomUser.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        user_streak = get_object_or_404(UserStreak, user_id=user_id)
+        data = {
+            "current_streak": user_streak.current_streak,
+            "longest_streak": user_streak.longest_streak
+        }
+        return Response(data, status=status.HTTP_200_OK)

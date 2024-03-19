@@ -127,3 +127,24 @@ class UserStreak(models.Model):
     current_streak = models.PositiveIntegerField(default=0)
     longest_streak = models.PositiveIntegerField(default=0)
     last_streak_date = models.DateField(null=True, blank=True)
+    timezone = models.CharField(max_length=50, default='UTC')
+
+    def update_streak(self):
+        today = timezone.now().astimezone(timezone.pytz.timezone(self.timezone)).date()
+        streak_broken = False
+        if self.last_streak_date:
+            if self.last_streak_date == today - timezone.timedelta(days=1):
+                self.current_streak += 1
+            elif self.last_streak_date < today - timezone.timedelta(days=1):
+                self.current_streak = 1
+                streak_broken = True
+        else:
+            self.current_streak = 1
+
+        if self.current_streak > self.longest_streak:
+            self.longest_streak = self.current_streak
+
+        self.last_streak_date = today
+        self.save()
+
+        return streak_brokenя

@@ -8,7 +8,7 @@ from .views import CheckUsernameUniqueView, GetAllTopicsView, CreateUserView, Ge
     CardListView, QuizListView, MarkCardsAsTestPassed, IncrementReadCards, SaveCard, SavedCards, UsersView, \
     SaveAnswersView, UserBadgeProgressView, CheckUserAchievementsView, UserTopicProgressView, UserSubtitleProgressView, \
     CardsForSubtitleView, QuizByCardsView, GetQuizzesByCardIdsView, MarkCardsAndViewedQuizzes, SubtopicPurchaseView, \
-    GetLivesView, LoseLifeView, LoginUserView, GetCurrentStreakView
+    GetLivesView, LoseLifeView, LoginUserView, LogoutUserView, GetStreakView, UpdateStreakView
 
 urlpatterns = [
     path('check_unique/<str:username>/', CheckUsernameUniqueView.as_view(), name='check-username-unique'),
@@ -40,7 +40,9 @@ urlpatterns = [
     path('lose-life/', LoseLifeView.as_view()),
     path('register/', CreateUserView.as_view(), name='register'),
     path('login/', LoginUserView.as_view(), name='login'),
-    path('current-streak/', GetCurrentStreakView.as_view(), name='current-streak'),
+    path('logout/', LogoutUserView.as_view(), name='logout'),
+    path('/current-streak/<int:user_id>/', GetStreakView.as_view(), name='current_streak'),
+    path('/update-streak/', UpdateStreakView.as_view(), name='update_streak')
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
