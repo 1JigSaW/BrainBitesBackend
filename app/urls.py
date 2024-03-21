@@ -41,8 +41,8 @@ urlpatterns = [
     path('register/', CreateUserView.as_view(), name='register'),
     path('login/', LoginUserView.as_view(), name='login'),
     path('logout/', LogoutUserView.as_view(), name='logout'),
-    path('/current-streak/<int:user_id>/', GetStreakView.as_view(), name='current_streak'),
-    path('/update-streak/', UpdateStreakView.as_view(), name='update_streak')
+    path('current-streak/<int:user_id>/', GetStreakView.as_view(), name='current_streak'),
+    path('update-streak/', UpdateStreakView.as_view(), name='update_streak')
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

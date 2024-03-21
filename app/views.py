@@ -21,7 +21,7 @@ from rest_framework.views import APIView
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
     UserSubtitle, UserQuizStatistics, UserStreak
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
-    QuizSerializer, EarnedBadgeSerializer
+    QuizSerializer, EarnedBadgeSerializer, UserStreakSerializer
 
 
 class CheckUsernameUniqueView(APIView):
@@ -999,14 +999,12 @@ class UpdateStreakView(APIView):
 
 
 class GetStreakView(APIView):
-    def get(self, request, *args, **kwargs):
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({"error": "User ID must be provided."}, status=status.HTTP_400_BAD_REQUEST)
-
+    def get(self, request, user_id, *args, **kwargs):
         user_streak = get_object_or_404(UserStreak, user_id=user_id)
         data = {
             "current_streak": user_streak.current_streak,
             "longest_streak": user_streak.longest_streak
         }
-        return Response(data, status=status.HTTP_200_OK)
+        serializer = UserStreakSerializer(user_streak)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

@@ -147,4 +147,4 @@ class UserStreak(models.Model):
         self.last_streak_date = today
         self.save()
 
-        return streak_brokenя
+        return streak_broken
