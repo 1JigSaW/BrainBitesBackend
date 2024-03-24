@@ -17,6 +17,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
     UserSubtitle, UserQuizStatistics, UserStreak
@@ -820,7 +822,8 @@ class UserSubtitleProgressView(APIView):
                 'total_cards': total_cards,
                 'is_free': subtitle.is_free,
                 'is_purchased': subtitle.id in purchased_subtitles,  # Добавляем информацию о покупке
-                'cost': subtitle.cost
+                'cost': subtitle.cost,
+                'image': subtitle.image
             })
 
         sorted_subtitle_data = sorted(subtitle_data, key=lambda x: x['subtitle_id'])
@@ -964,6 +967,7 @@ class GetLivesView(APIView):
         except CustomUser.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
+
 class LogoutUserView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1008,3 +1012,18 @@ class GetStreakView(APIView):
         serializer = UserStreakSerializer(user_streak)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class GoogleSignInView(APIView):
+    def post(self, request, *args, **kwargs):
+        token = request.data.get('token')
+        try:
+            idinfo = id_token.verify_oauth2_token(token, requests.Request(), 'YOUR_GOOGLE_CLIENT_ID')
+
+            userid = idinfo['sub']
+            email = idinfo['email']
+
+            user, created = CustomUser.objects.get_or_create(email=email, defaults={'username': email})
+
+            return Response({'detail': 'Успешный вход/регистрация'}, status=status.HTTP_200_OK)
+        except ValueError:
+            return Response({'error': 'Неверный токен'}, status=status.HTTP_400_BAD_REQUEST)
