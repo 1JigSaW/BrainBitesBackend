@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 
 import dotenv
+import boto3
+from storages.backends.s3boto3 import S3Boto3Storage
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,7 +41,6 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
-
 
 from celery.schedules import crontab
 
@@ -159,11 +160,23 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.environ.get('CLOUD_NAME'),
-    'API_KEY': os.environ.get('API_KEY'),
-    'API_SECRET': os.environ.get('API_SECRET'),
-}
-print(f"Cloudinary config: {CLOUDINARY_STORAGE}")
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_CUSTOM_DOMAIN = ''
+AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+class StaticStorage(S3Boto3Storage):
+    location = 'static'
+    default_acl = 'public-read'
+
+
+class MediaStorage(S3Boto3Storage):
+    location = 'media'
+    file_overwrite = False
+    default_acl = 'public-read'
+
+
+# Configure Django to use S3 for media files
+DEFAULT_FILE_STORAGE = 'BrainBites.settings.MediaStorage'

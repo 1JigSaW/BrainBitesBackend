@@ -1,13 +1,15 @@
 from cloudinary.models import CloudinaryField
-from django.conf import settings
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.utils import timezone
 
+from BrainBites import settings
+
 
 class Topic(models.Model):
     title = models.CharField(max_length=255)
-    image = CloudinaryField('topic', blank=True, null=True)
+    image = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.title}"
@@ -17,7 +19,7 @@ class Subtitle(models.Model):
     title = models.CharField(max_length=255)
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='topic')
     is_free = models.BooleanField(default=False)
-    image = CloudinaryField('image_subtitle', blank=True, null=True)
+    image = models.URLField(blank=True, null=True)
     cost = models.PositiveIntegerField(default=200)
     exist = models.BooleanField(default=True)
 
@@ -45,7 +47,7 @@ class Card(models.Model):
     content = models.TextField()
     source = models.CharField(max_length=255)
     read_count = models.PositiveIntegerField(default=0)  # Tracks how many times the card has been read
-    image = CloudinaryField('image', blank=True, null=True)
+    image = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.title} {self.topic.title}"

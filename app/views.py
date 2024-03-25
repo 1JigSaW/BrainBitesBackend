@@ -776,7 +776,7 @@ class UserTopicProgressView(APIView):
             total_cards = Card.objects.filter(topic=topic).count()
             progress = total_viewed / total_cards if total_cards > 0 else 0
 
-            image_url = topic.image.url if hasattr(topic.image, 'url') else None
+            image_url = topic.image if topic.image else None
 
             topics_data.append({
                 'topic_id': topic.id,
@@ -800,11 +800,12 @@ class UserSubtitleProgressView(APIView):
 
         cards_in_topic = Card.objects.filter(topic=topic)
 
-        subtitles = Subtitle.objects.filter(id__in=cards_in_topic.values('subtitle_id')).distinct()
+        subtitles = Subtitle.objects.filter(id__in=cards_in_topic.values('subtitle_id'), exist=True).distinct()
 
         purchased_subtitles = UserSubtitle.objects.filter(user=user).values_list('subtitle', flat=True)
 
         subtitle_data = []
+
 
         for subtitle in subtitles:
             cards_in_subtitle = cards_in_topic.filter(subtitle=subtitle)
@@ -813,6 +814,8 @@ class UserSubtitleProgressView(APIView):
             total_cards = cards_in_subtitle.count()
             progress = total_viewed / total_cards if total_cards > 0 else 0
             print('subtitle', subtitle, 'progress', progress, 'total_cards', total_cards, 'total_cards', total_cards)
+
+            image_url = subtitle.image if subtitle.image else None
 
             subtitle_data.append({
                 'subtitle_id': subtitle.id,
@@ -823,7 +826,7 @@ class UserSubtitleProgressView(APIView):
                 'is_free': subtitle.is_free,
                 'is_purchased': subtitle.id in purchased_subtitles,  # Добавляем информацию о покупке
                 'cost': subtitle.cost,
-                'image': subtitle.image
+                'image': image_url,
             })
 
         sorted_subtitle_data = sorted(subtitle_data, key=lambda x: x['subtitle_id'])
