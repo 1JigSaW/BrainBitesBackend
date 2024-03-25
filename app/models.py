@@ -78,6 +78,7 @@ class UserQuizStatistics(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='quiz_stats')
     total_attempts = models.PositiveIntegerField(default=0)
     correct_attempts = models.PositiveIntegerField(default=0)
+    incorrect_attempts = models.PositiveIntegerField(default=0)
 
 
 class Badge(models.Model):
@@ -150,3 +151,33 @@ class UserStreak(models.Model):
         self.save()
 
         return streak_broken
+
+
+class DailyReadCards(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='daily_read_cards')
+    date = models.DateField()
+    cards_read = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('user', 'date')
+
+
+class CorrectStreak(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='correct_streaks')
+    streak_count = models.PositiveIntegerField(default=0)
+    max_streak = models.PositiveIntegerField(default=0)
+    last_quiz_fully_correct = models.BooleanField(default=False)
+
+    def update_streak(self, quiz_correct_answers, total_quiz_questions):
+        if quiz_correct_answers == total_quiz_questions:
+            self.streak_count += quiz_correct_answers
+            self.last_quiz_fully_correct = True
+        else:
+            if not self.last_quiz_fully_correct:
+                self.streak_count = quiz_correct_answers if quiz_correct_answers == total_quiz_questions else 0
+            self.last_quiz_fully_correct = False
+
+        if self.streak_count > self.max_streak:
+            self.max_streak = self.streak_count
+
+        self.save()

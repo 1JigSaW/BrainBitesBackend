@@ -21,7 +21,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
-    UserSubtitle, UserQuizStatistics, UserStreak
+    UserSubtitle, UserQuizStatistics, UserStreak, DailyReadCards, CorrectStreak
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
     QuizSerializer, EarnedBadgeSerializer, UserStreakSerializer
 
@@ -590,8 +590,13 @@ class UserBadgeProgressView(APIView):
             # Объединяем и сортируем список
             badges_list.sort(
                 key=lambda x: (
-                    x['is_earned'],
-                    -abs(x['result'] - x['progress_number']) if x['progress_number'] != 0 else float('inf'))
+                    x['is_earned'],  # Первыми идут незаработанные значки
+                    (x['progress_number'] == x['result']) * 1,  # После идут полностью заработанные значки
+                    (x['progress_number'] == 0) * -1,  # Затем те, у кого нулевой прогресс
+                    -abs(x['result'] - x['progress_number'])
+                    # В конце сортируем по близости прогресса к результату для незаработанных значков
+                ),
+                reverse=True  # Может понадобиться изменить порядок сортировки в зависимости от желаемого результата
             )
 
             # Возвращаем только топ-3, если требуется
@@ -806,7 +811,6 @@ class UserSubtitleProgressView(APIView):
 
         subtitle_data = []
 
-
         for subtitle in subtitles:
             cards_in_subtitle = cards_in_topic.filter(subtitle=subtitle)
             viewed_cards = ViewedCard.objects.filter(user=user, card__in=cards_in_subtitle)
@@ -887,19 +891,34 @@ class MarkCardsAndViewedQuizzes(APIView):
         except CustomUser.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
 
-        # Обработка только правильно отвеченных карт
-        for card_id in correct_answer_ids:
-            if card_id in card_ids:  # Убедимся, что карта действительно предназначена для обработки
-                viewed_card, created = ViewedCard.objects.get_or_create(
-                    user=user,
-                    card_id=card_id,
-                    defaults={'test_passed': True, 'correct': True}
-                )
-                # Если запись уже существует, обновим ее, хотя в данном случае это может быть не нужно
+        correct_answers_count = 0
+        incorrect_answers_count = 0
+
+        for card_id in card_ids:
+            viewed_card, created = ViewedCard.objects.get_or_create(
+                user=user,
+                card_id=card_id,
+                defaults={'test_passed': card_id in correct_answer_ids, 'correct': card_id in correct_answer_ids}
+            )
+            if card_id in correct_answer_ids:
+                correct_answers_count += 1
+            else:
+                incorrect_answers_count += 1
                 if not created:
-                    viewed_card.test_passed = True
-                    viewed_card.correct = True
+                    viewed_card.test_passed = False
+                    viewed_card.correct = False
                     viewed_card.save()
+
+        UserQuizStatistics.objects.filter(user=user).update(
+            total_attempts=F('total_attempts') + len(card_ids),
+            correct_attempts=F('correct_attempts') + correct_answers_count,
+            incorrect_attempts=F('incorrect_attempts') + incorrect_answers_count,
+        )
+
+        today = timezone.now().date()
+        daily_stat, created = DailyReadCards.objects.get_or_create(user=user, date=today)
+        daily_stat.cards_read = F('cards_read') + len(card_ids)
+        daily_stat.save()
 
         return Response({'message': 'Correctly answered cards marked as viewed.'}, status=200)
 
@@ -1030,3 +1049,34 @@ class GoogleSignInView(APIView):
             return Response({'detail': 'Успешный вход/регистрация'}, status=status.HTTP_200_OK)
         except ValueError:
             return Response({'error': 'Неверный токен'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UpdateQuizStreakView(APIView):
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        streak_count_current = request.data.get('streak_count', 0)
+        all_cards_bool = request.data.get('all_cards_bool', False)
+
+        if not user_id:
+            return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = CustomUser.objects.filter(id=user_id).first()
+        if not user:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not streak_count_current:
+            return Response({'error': 'Quizzes results are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        streak_record, _ = CorrectStreak.objects.get_or_create(user=user)
+        if streak_record.last_quiz_fully_correct:
+            new_streak = streak_record.streak_count + streak_count_current
+        else:
+            new_streak = streak_count_current
+        streak_record.streak_count = new_streak
+        if all_cards_bool:
+            streak_record.last_quiz_fully_correct = True
+        else:
+            streak_record.last_quiz_fully_correct = False
+        streak_record.save()
+
+        return Response({'message': 'Streak updated successfully'}, status=status.HTTP_200_OK)
