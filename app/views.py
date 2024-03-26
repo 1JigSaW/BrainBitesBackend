@@ -773,20 +773,20 @@ class UserTopicProgressView(APIView):
         except CustomUser.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        user_topics = Topic.objects.filter(users_interested=user)  # Corrected line
+        user_topics = Topic.objects.filter(users_interested=user)
         topics_data = []
 
         for topic in user_topics:
             viewed_cards = ViewedCard.objects.filter(user=user, card__topic=topic)
             total_viewed = viewed_cards.count()
-            total_cards = Card.objects.filter(topic=topic).count()
+            total_cards = Card.objects.filter(topic=topic, subtitle__exist=True).count()
             progress = total_viewed / total_cards if total_cards > 0 else 0
 
             image_url = topic.image if topic.image else None
 
             topics_data.append({
                 'topic_id': topic.id,
-                'topic_name': topic.title,  # Corrected field name from 'name' to 'title'
+                'topic_name': topic.title,
                 'progress': progress,
                 'viewed_cards': total_viewed,
                 'total_cards': total_cards,
@@ -911,20 +911,20 @@ class MarkCardsAndViewedQuizzes(APIView):
                     viewed_card.correct = False
                     viewed_card.save()
         print(correct_answers_count, incorrect_answers_count)
-        UserQuizStatistics.objects.update_or_create(
-            user=user,
-            defaults={
-                'total_attempts': F('total_attempts') + len(card_ids),
-                'correct_attempts': F('correct_attempts') + correct_answers_count,
-                'incorrect_attempts': F('incorrect_attempts') + incorrect_answers_count,
-            }
-        )
+        stats, created = UserQuizStatistics.objects.get_or_create(user=user)
+
+        if stats:
+            UserQuizStatistics.objects.filter(user=user).update(
+                total_attempts=F('total_attempts') + len(card_ids),
+                correct_attempts=F('correct_attempts') + correct_answers_count,
+                incorrect_attempts=F('incorrect_attempts') + incorrect_answers_count,
+            )
 
         today = timezone.now().date()
         daily_stat, created = DailyReadCards.objects.get_or_create(user=user, date=today)
         daily_stat.cards_read = F('cards_read') + len(card_ids)
         daily_stat.save()
-
+# Если статистика найдена или создана, обновите значения
         return Response({'message': 'Correctly answered cards marked as viewed.'}, status=200)
 
 
@@ -1031,11 +1031,13 @@ class UpdateStreakView(APIView):
 
 class GetStreakView(APIView):
     def get(self, request, user_id, *args, **kwargs):
-        user_streak = get_object_or_404(UserStreak, user_id=user_id)
-        data = {
-            "current_streak": user_streak.current_streak,
-            "longest_streak": user_streak.longest_streak
-        }
+        get_object_or_404(CustomUser, id=user_id)
+
+        user_streak, created = UserStreak.objects.get_or_create(user_id=user_id)
+
+        if created:
+            print(f"Created a new UserStreak for user_id: {user_id}")
+
         serializer = UserStreakSerializer(user_streak)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

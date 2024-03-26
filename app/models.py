@@ -1,5 +1,4 @@
-from cloudinary.models import CloudinaryField
-
+import pytz
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.utils import timezone
@@ -133,8 +132,10 @@ class UserStreak(models.Model):
     timezone = models.CharField(max_length=50, default='UTC')
 
     def update_streak(self):
-        today = timezone.now().astimezone(timezone.pytz.timezone(self.timezone)).date()
+        user_tz = pytz.timezone(self.timezone)
+        today = timezone.now().astimezone(user_tz).date()
         streak_broken = False
+
         if self.last_streak_date:
             if self.last_streak_date == today - timezone.timedelta(days=1):
                 self.current_streak += 1
