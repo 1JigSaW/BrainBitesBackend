@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Topic, CustomUser, Card, Subtitle, Quiz, EarnedBadge, Badge, UserStreak
+from .models import Topic, CustomUser, Card, Subtitle, Quiz, EarnedBadge, Badge, UserStreak, DailyReadCards, \
+    CorrectStreak, UserQuizStatistics
 
 
 class TopicSerializer(serializers.ModelSerializer):
@@ -74,4 +75,22 @@ class EarnedBadgeSerializer(serializers.ModelSerializer):
 class UserStreakSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserStreak
+        fields = '__all__'
+
+
+class DailyReadCardsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DailyReadCards
+        fields = '__all__'
+
+
+class CorrectStreakSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CorrectStreak
+        fields = '__all__'
+
+
+class UserQuizStatisticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserQuizStatistics
         fields = '__all__'

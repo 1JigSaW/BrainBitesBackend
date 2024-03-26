@@ -23,7 +23,8 @@ from google.auth.transport import requests
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
     UserSubtitle, UserQuizStatistics, UserStreak, DailyReadCards, CorrectStreak
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
-    QuizSerializer, EarnedBadgeSerializer, UserStreakSerializer
+    QuizSerializer, EarnedBadgeSerializer, UserStreakSerializer, DailyReadCardsSerializer, CorrectStreakSerializer, \
+    UserQuizStatisticsSerializer
 
 
 class CheckUsernameUniqueView(APIView):
@@ -902,17 +903,21 @@ class MarkCardsAndViewedQuizzes(APIView):
             )
             if card_id in correct_answer_ids:
                 correct_answers_count += 1
+                print('+1')
             else:
                 incorrect_answers_count += 1
                 if not created:
                     viewed_card.test_passed = False
                     viewed_card.correct = False
                     viewed_card.save()
-
-        UserQuizStatistics.objects.filter(user=user).update(
-            total_attempts=F('total_attempts') + len(card_ids),
-            correct_attempts=F('correct_attempts') + correct_answers_count,
-            incorrect_attempts=F('incorrect_attempts') + incorrect_answers_count,
+        print(correct_answers_count, incorrect_answers_count)
+        UserQuizStatistics.objects.update_or_create(
+            user=user,
+            defaults={
+                'total_attempts': F('total_attempts') + len(card_ids),
+                'correct_attempts': F('correct_attempts') + correct_answers_count,
+                'incorrect_attempts': F('incorrect_attempts') + incorrect_answers_count,
+            }
         )
 
         today = timezone.now().date()
@@ -1073,6 +1078,8 @@ class UpdateQuizStreakView(APIView):
         else:
             new_streak = streak_count_current
         streak_record.streak_count = new_streak
+        if streak_record.max_streak < new_streak:
+            streak_record.max_streak = new_streak
         if all_cards_bool:
             streak_record.last_quiz_fully_correct = True
         else:
@@ -1080,3 +1087,21 @@ class UpdateQuizStreakView(APIView):
         streak_record.save()
 
         return Response({'message': 'Streak updated successfully'}, status=status.HTTP_200_OK)
+
+
+class UserStatsView(APIView):
+    def get(self, request, user_id, format=None):
+        user = get_object_or_404(CustomUser, id=user_id)
+        daily_read_cards = DailyReadCards.objects.filter(user=user)
+        correct_streak = CorrectStreak.objects.filter(user=user)
+        user_quiz_statistics = UserQuizStatistics.objects.filter(user=user)
+
+        daily_read_cards_serializer = DailyReadCardsSerializer(daily_read_cards, many=True)
+        correct_streak_serializer = CorrectStreakSerializer(correct_streak, many=True)
+        user_quiz_statistics_serializer = UserQuizStatisticsSerializer(user_quiz_statistics, many=True)
+
+        return Response({
+            'daily_read_cards': daily_read_cards_serializer.data,
+            'correct_streak': correct_streak_serializer.data,
+            'user_quiz_statistics': user_quiz_statistics_serializer.data
+        })
