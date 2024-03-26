@@ -805,9 +805,7 @@ class UserSubtitleProgressView(APIView):
             return Response({"error": "User or Topic not found."}, status=status.HTTP_404_NOT_FOUND)
 
         cards_in_topic = Card.objects.filter(topic=topic)
-
         subtitles = Subtitle.objects.filter(id__in=cards_in_topic.values('subtitle_id'), exist=True).distinct()
-
         purchased_subtitles = UserSubtitle.objects.filter(user=user).values_list('subtitle', flat=True)
 
         subtitle_data = []
@@ -818,23 +816,23 @@ class UserSubtitleProgressView(APIView):
             total_viewed = viewed_cards.count()
             total_cards = cards_in_subtitle.count()
             progress = total_viewed / total_cards if total_cards > 0 else 0
-            print('subtitle', subtitle, 'progress', progress, 'total_cards', total_cards, 'total_cards', total_cards)
 
             image_url = subtitle.image if subtitle.image else None
 
             subtitle_data.append({
                 'subtitle_id': subtitle.id,
-                'subtitle_name': subtitle.title,  # Assuming Subtitle model has a name field
+                'subtitle_name': subtitle.title,
                 'progress': progress,
                 'viewed_cards': total_viewed,
                 'total_cards': total_cards,
                 'is_free': subtitle.is_free,
-                'is_purchased': subtitle.id in purchased_subtitles,  # Добавляем информацию о покупке
+                'is_purchased': subtitle.id in purchased_subtitles,
                 'cost': subtitle.cost,
                 'image': image_url,
             })
 
-        sorted_subtitle_data = sorted(subtitle_data, key=lambda x: x['subtitle_id'])
+
+        sorted_subtitle_data = sorted(subtitle_data, key=lambda x: (not x['is_free'], x['cost']))
 
         return JsonResponse({'subtitles_progress': sorted_subtitle_data})
 
@@ -924,7 +922,6 @@ class MarkCardsAndViewedQuizzes(APIView):
         daily_stat, created = DailyReadCards.objects.get_or_create(user=user, date=today)
         daily_stat.cards_read = F('cards_read') + len(card_ids)
         daily_stat.save()
-# Если статистика найдена или создана, обновите значения
         return Response({'message': 'Correctly answered cards marked as viewed.'}, status=200)
 
 
@@ -1063,14 +1060,14 @@ class UpdateQuizStreakView(APIView):
         user_id = request.data.get('user_id')
         streak_count_current = request.data.get('streak_count', 0)
         all_cards_bool = request.data.get('all_cards_bool', False)
-
+        print(user_id)
         if not user_id:
             return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = CustomUser.objects.filter(id=user_id).first()
         if not user:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-
+        print(streak_count_current)
         if not streak_count_current:
             return Response({'error': 'Quizzes results are required'}, status=status.HTTP_400_BAD_REQUEST)
 
