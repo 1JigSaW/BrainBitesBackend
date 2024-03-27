@@ -130,6 +130,7 @@ class CreateUserView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+
         try:
             with transaction.atomic():
                 user = CustomUser.objects.create(
@@ -138,6 +139,8 @@ class CreateUserView(APIView):
                     password=make_password(password),
                     everyday_cards=cards_count,
                 )
+
+                UserQuizStatistics.objects.create(user=user)
 
                 topics = Topic.objects.all()
                 user.topics.set(topics)
