@@ -141,6 +141,13 @@ class CreateUserView(APIView):
                 )
 
                 UserQuizStatistics.objects.create(user=user)
+                DailyReadCards.objects.create(
+                    user=user,
+                    date=timezone.now().date(),
+                    cards_read=0
+                )
+
+                CorrectStreak.objects.create(user=user)
 
                 topics = Topic.objects.all()
                 user.topics.set(topics)
