@@ -94,3 +94,9 @@ class UserQuizStatisticsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserQuizStatistics
         fields = '__all__'
+
+
+class CustomUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = '__all__'

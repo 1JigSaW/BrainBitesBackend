@@ -1,3 +1,4 @@
+import os
 import random
 import string
 
@@ -24,7 +25,7 @@ from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgr
     UserSubtitle, UserQuizStatistics, UserStreak, DailyReadCards, CorrectStreak
 from app.serializers import TopicSerializer, UserSerializer, BadgeSerializer, UserStatsSerializer, CardSerializer, \
     QuizSerializer, EarnedBadgeSerializer, UserStreakSerializer, DailyReadCardsSerializer, CorrectStreakSerializer, \
-    UserQuizStatisticsSerializer
+    UserQuizStatisticsSerializer, CustomUserSerializer
 
 
 class CheckUsernameUniqueView(APIView):
@@ -129,7 +130,6 @@ class CreateUserView(APIView):
                 {"error": "Username already exists."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
 
         try:
             with transaction.atomic():
@@ -589,7 +589,7 @@ class UserBadgeProgressView(APIView):
                     'id': badge.id,
                     'name': badge.name,
                     'description': badge.description,
-                    'image': badge.image.url if badge.image else None,
+                    'image': badge.image if badge.image else None,
                     'criteria': badge.criteria,
                     'result': badge.result,
                     'progress_number': progress_number,
@@ -598,25 +598,23 @@ class UserBadgeProgressView(APIView):
                 }
                 badges_list.append(badge_data)
 
-            # Объединяем и сортируем список
             badges_list.sort(
                 key=lambda x: (
-                    x['is_earned'],  # Первыми идут незаработанные значки
-                    (x['progress_number'] == x['result']) * 1,  # После идут полностью заработанные значки
-                    (x['progress_number'] == 0) * -1,  # Затем те, у кого нулевой прогресс
+                    x['is_earned'],
+                    (x['progress_number'] == x['result']) * 1,
+                    (x['progress_number'] == 0) * -1,
                     -abs(x['result'] - x['progress_number'])
-                    # В конце сортируем по близости прогресса к результату для незаработанных значков
                 ),
-                reverse=True  # Может понадобиться изменить порядок сортировки в зависимости от желаемого результата
+                reverse=True
             )
 
-            # Возвращаем только топ-3, если требуется
             if top_three:
                 badges_list = badges_list[:3]
 
             return Response({'badge_progress': badges_list}, status=status.HTTP_200_OK)
 
         except Exception as e:
+            print(e)
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -841,7 +839,6 @@ class UserSubtitleProgressView(APIView):
                 'image': image_url,
             })
 
-
         sorted_subtitle_data = sorted(subtitle_data, key=lambda x: (not x['is_free'], x['cost']))
 
         return JsonResponse({'subtitles_progress': sorted_subtitle_data})
@@ -1051,16 +1048,44 @@ class GetStreakView(APIView):
 
 class GoogleSignInView(APIView):
     def post(self, request, *args, **kwargs):
-        token = request.data.get('token')
+        print(request.data)
+        token = request.data.get('id_token')
         try:
-            idinfo = id_token.verify_oauth2_token(token, requests.Request(), 'YOUR_GOOGLE_CLIENT_ID')
-
-            userid = idinfo['sub']
+            idinfo = id_token.verify_oauth2_token(token, requests.Request(), os.environ.get('GOOGLE_CLIENT_ID'))
             email = idinfo['email']
 
-            user, created = CustomUser.objects.get_or_create(email=email, defaults={'username': email})
+            email_username_part = email.split('@')[0]
 
-            return Response({'detail': 'Успешный вход/регистрация'}, status=status.HTTP_200_OK)
+            username = email_username_part[:15]
+
+            user, created = CustomUser.objects.get_or_create(
+                email=email,
+                defaults={'username': username}
+            )
+
+            print(user, created)
+            if created:
+                try:
+                    with transaction.atomic():
+                        UserQuizStatistics.objects.create(user=user)
+                        DailyReadCards.objects.create(user=user, date=timezone.now().date(), cards_read=0)
+                        CorrectStreak.objects.create(user=user)
+
+                        topics = Topic.objects.all()
+                        user.topics.set(topics)
+
+                        user.save()
+
+                except IntegrityError as e:
+                    return Response(
+                        {"error": "Failed to initialize user data due to an integrity error."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+
+            user_data = UserSerializer(user).data
+
+            return Response({'detail': 'Успешный вход/регистрация', 'user': user_data}, status=status.HTTP_200_OK)
+
         except ValueError:
             return Response({'error': 'Неверный токен'}, status=status.HTTP_400_BAD_REQUEST)
 

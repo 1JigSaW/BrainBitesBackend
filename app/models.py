@@ -83,7 +83,7 @@ class UserQuizStatistics(models.Model):
 class Badge(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
-    image = models.ImageField(upload_to='badges/', default='path/to/my/default/image.jpg')
+    image = models.URLField(blank=True, null=True)
     criteria = models.JSONField(default=dict)
     result = models.PositiveIntegerField(default=0)
 
