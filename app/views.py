@@ -1139,3 +1139,23 @@ class UserStatsView(APIView):
             'correct_streak': correct_streak_serializer.data,
             'user_quiz_statistics': user_quiz_statistics_serializer.data
         })
+
+
+class PurchaseLivesView(APIView):
+    def post(self, request, *args, **kwargs):
+        print(111)
+        user_id = request.data.get('user_id')
+        lives_cost = request.data.get('cost', 15)
+
+        user = get_object_or_404(CustomUser, id=user_id)
+
+        if user.xp < lives_cost:
+            return Response({"error": "Not enough XP to purchase lives."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.xp -= lives_cost
+        user.lives += 1
+        user.save()
+
+        return Response({"success": "Life successfully purchased.",
+                         "current_xp": user.xp, "current_lives": user.lives},
+                        status=status.HTTP_200_OK)
