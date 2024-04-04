@@ -8,7 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction, IntegrityError
 from django.db.models import Subquery, Count, Window, F
 from django.db.models.functions import DenseRank
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views import View
@@ -1159,3 +1159,21 @@ class PurchaseLivesView(APIView):
         return Response({"success": "Life successfully purchased.",
                          "current_xp": user.xp, "current_lives": user.lives},
                         status=status.HTTP_200_OK)
+
+
+class MainView(View):
+    def get(self, request, *args, **kwargs):
+        html_content = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Main</title>
+        </head>
+        <body>
+            <h1>hi</h1>
+        </body>
+        </html>
+        """
+        return HttpResponse(html_content)
