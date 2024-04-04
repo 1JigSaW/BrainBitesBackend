@@ -48,7 +48,6 @@ urlpatterns = [
     path('update-quiz-streak/', UpdateQuizStreakView.as_view(), name='update-quiz-streak'),
     path('user-stats-full/<int:user_id>/', UserStatsView.as_view(), name='user-stats'),
     path('purchase-lives/', PurchaseLivesView.as_view(), name='purchase-lives'),
-    path('', MainView.as_view(), name='main'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
