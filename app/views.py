@@ -1177,3 +1177,23 @@ class MainView(View):
         </html>
         """
         return HttpResponse(html_content)
+
+
+class AddXPView(APIView):
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get('user_id')
+        xp_amount = request.data.get('xp_amount', 0)
+
+        if user_id is None or xp_amount is None:
+            return Response({"error": "Missing 'user_id' or 'xp_amount'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            xp_amount = int(xp_amount)
+        except ValueError:
+            return Response({"error": "'xp_amount' must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(CustomUser, id=user_id)
+        user.xp += xp_amount
+        user.save()
+
+        return Response({"success": "XP successfully added.", "current_xp": user.xp}, status=status.HTTP_200_OK)
