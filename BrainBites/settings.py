@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+import ssl
 from pathlib import Path
 
 import dotenv
@@ -41,6 +42,9 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+BROKER_USE_SSL = {
+  'ssl_cert_reqs': ssl.CERT_NONE  # Or ssl.CERT_REQUIRED for a stricter approach
+}
 
 from celery.schedules import crontab
 
