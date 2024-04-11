@@ -42,9 +42,6 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
-BROKER_USE_SSL = {
-  'ssl_cert_reqs': ssl.CERT_NONE  # Or ssl.CERT_REQUIRED for a stricter approach
-}
 
 from celery.schedules import crontab
 
