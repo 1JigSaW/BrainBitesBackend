@@ -174,7 +174,6 @@ class LoginUserView(APIView):
                 {"error": "Email and password are required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        print(email, password)
         user = authenticate(request, username=email, password=password)
 
         if user:
@@ -213,7 +212,6 @@ class GetUserStatsView(APIView):
                 # 'earned_badges': earned_badges_serialized,
                 'topics': TopicSerializer(topics, many=True).data
             }
-            print(user_data)
             serializer = UserStatsSerializer(user_data)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -306,14 +304,10 @@ class CardsForSubtitleView(APIView):
             user = CustomUser.objects.get(id=user_id)
             viewed_cards = ViewedCard.objects.filter(user=user).values_list('card', flat=True)
 
-            # Retrieve all cards that have not been viewed by the user
             available_cards = Card.objects.filter(subtitle=subtitle).exclude(id__in=viewed_cards)
-            print(len(Card.objects.filter(subtitle=subtitle)))
-            # If the number of available cards is less than num_cards, use all available cards
             if available_cards.count() < num_cards:
                 cards = available_cards
             else:
-                # Otherwise, limit the queryset to num_cards
                 cards = available_cards[:num_cards]
 
             serializer = CardSerializer(cards, many=True)
@@ -470,17 +464,14 @@ class UsersView(APIView):
         sort_by = request.query_params.get('sort_by')
         return_all = request.query_params.get('return_all', 'False') == 'True'
         user_id = request.query_params.get('user_id', None)
-        print(sort_by, return_all, user_id)
 
         try:
             if user_id is not None:
                 user_id = int(user_id)
 
-            # Аннотация для подсчета badges_count
             users_query = CustomUser.objects.annotate(badges_count=Count('xp'))
 
             if return_all:
-                # Определение поля для сортировки при return_all=True
                 if sort_by in ['xp', 'read_cards', 'badges']:
                     order_by_field = '-badges_count' if sort_by == 'badges' else f'-{sort_by}'
                     users_query = users_query.filter(xp__gt=0).order_by(order_by_field)
@@ -492,12 +483,10 @@ class UsersView(APIView):
                 if sort_by not in ['xp', 'read_cards', 'badges']:
                     return Response({'error': 'Invalid sort parameter'}, status=status.HTTP_400_BAD_REQUEST)
 
-                # Определение поля для сортировки
                 order_by_field = '-badges_count' if sort_by == 'badges' else f'-{sort_by}'
                 users = users_query.order_by(order_by_field)
                 top_users = list(users[:3])
 
-                # Определение ранга текущего пользователя
                 current_user_rank = None
                 if user_id is not None:
                     current_user = users_query.filter(id=user_id).first()
@@ -520,7 +509,6 @@ class UsersView(APIView):
                     for i, user in enumerate(top_users)
                 ]
 
-                # Добавление ранга текущего пользователя
                 if current_user_rank is not None:
                     for user_data in users_data:
                         if user_data['id'] == user_id:
@@ -548,13 +536,10 @@ class SaveAnswersView(APIView):
             if not user:
                 return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Assuming each correct answer gives 10 XP, for example
             xp_to_add = correct_answers_count * 10
 
-            # Update user XP
             CustomUser.objects.filter(id=user_id).update(xp=F('xp') + xp_to_add)
 
-            # Refresh the user instance to get the updated value
             user.refresh_from_db()
 
             return Response({'message': 'XP updated successfully.', 'new_xp': user.xp}, status=status.HTTP_200_OK)
@@ -633,8 +618,6 @@ class CheckUserAchievementsView(APIView):
         return completed_subtitles_count
 
     def get_completed_topics_count(self, user):
-        # Logic to determine the number of completed topics
-        # This is just a placeholder logic. Adjust according to your actual criteria
         completed_topics_count = 0
         for topic in Topic.objects.all():
             if self.is_topic_completed(user, topic):
@@ -642,15 +625,12 @@ class CheckUserAchievementsView(APIView):
         return completed_topics_count
 
     def is_topic_completed(self, user, topic):
-        # Determine if a topic is completed by the user
-        # Placeholder logic, modify as per your criteria
         for subtitle in topic.topic.all():
             if not ViewedCard.objects.filter(user=user, card__subtitle=subtitle).exists():
                 return False
         return True
 
     def get(self, request, *args, **kwargs):
-        print(11111111111111111111111111111111111111)
         user_id = request.query_params.get('user_id')
         if user_id is None:
             return Response({'error': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -661,17 +641,13 @@ class CheckUserAchievementsView(APIView):
         all_badges = Badge.objects.all()
         user_progress = UserBadgeProgress.objects.filter(user=user)
         for badge in all_badges:
-            print(badge.criteria)
 
-            # Проверяем, был ли значок уже заработан
             already_earned = EarnedBadge.objects.filter(user=user, badge=badge).exists()
 
-            # Если значок уже заработан, пропускаем его
             if already_earned:
                 print('already_earned', already_earned)
                 continue
 
-            # Используйте метод get() со значением по умолчанию, например, False
             if badge.criteria.get('read_cards', False):
                 user_progress = UserBadgeProgress.objects.get_or_create(user=user, badge=badge)
                 viewed_cards = ViewedCard.objects.filter(user=user, test_passed=True)
@@ -684,7 +660,6 @@ class CheckUserAchievementsView(APIView):
                         if badge_created:
                             earned_badges.append({
                                 'name': badge.name,
-                                # Другие поля
                             })
             elif 'correct_quiz_answers' in badge.criteria:
                 user_quiz_stats = UserQuizStatistics.objects.filter(user=user).first()
@@ -700,7 +675,6 @@ class CheckUserAchievementsView(APIView):
                         if badge_created:
                             earned_badges.append({
                                 'name': badge.name,
-                                # Другие поля
                             })
             elif badge.criteria.get('complete_subtopics', False):
                 completed_subtopics_count = self.get_completed_subtopics_count(user)
@@ -768,9 +742,7 @@ class CheckUserAchievementsView(APIView):
                         if badge_created:
                             earned_badges.append({
                                 'name': badge.name,
-                                # Другие поля
                             })
-        print('earned_badges', earned_badges)
         return Response({'earned_badges': earned_badges}, status=status.HTTP_200_OK)
 
 
@@ -884,8 +856,6 @@ class MarkCardsAndViewedQuizzes(APIView):
         user_id = request.data.get('user_id')
         card_ids = request.data.get('card_ids')
         correct_answer_ids = request.data.get('correct_answer_ids', [])
-        print('correct_answer_ids', correct_answer_ids)
-        print('card_ids', card_ids)
 
         if not user_id:
             return Response({'error': 'User ID must be provided'}, status=400)
@@ -908,14 +878,12 @@ class MarkCardsAndViewedQuizzes(APIView):
             )
             if card_id in correct_answer_ids:
                 correct_answers_count += 1
-                print('+1')
             else:
                 incorrect_answers_count += 1
                 if not created:
                     viewed_card.test_passed = False
                     viewed_card.correct = False
                     viewed_card.save()
-        print(correct_answers_count, incorrect_answers_count)
         stats, created = UserQuizStatistics.objects.get_or_create(user=user)
 
         if stats:
@@ -948,7 +916,6 @@ class SubtopicPurchaseView(APIView):
                 user.xp -= subtitle.cost
                 user.save()
 
-                # Создание нового объекта UserSubtitle
                 user_subtitle, created = UserSubtitle.objects.get_or_create(
                     user=user,
                     subtitle=subtitle,
@@ -1048,7 +1015,6 @@ class GetStreakView(APIView):
 
 class GoogleSignInView(APIView):
     def post(self, request, *args, **kwargs):
-        print(request.data)
         token = request.data.get('id_token')
         try:
             idinfo = id_token.verify_oauth2_token(token, requests.Request(), os.environ.get('GOOGLE_CLIENT_ID'))
@@ -1063,7 +1029,6 @@ class GoogleSignInView(APIView):
                 defaults={'username': username}
             )
 
-            print(user, created)
             if created:
                 try:
                     with transaction.atomic():
@@ -1095,14 +1060,12 @@ class UpdateQuizStreakView(APIView):
         user_id = request.data.get('user_id')
         streak_count_current = request.data.get('streak_count', 0)
         all_cards_bool = request.data.get('all_cards_bool', False)
-        print(user_id)
         if not user_id:
             return Response({'error': 'User ID must be provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = CustomUser.objects.filter(id=user_id).first()
         if not user:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-        print(streak_count_current)
         if not streak_count_current:
             return Response({'error': 'Quizzes results are required'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1143,7 +1106,6 @@ class UserStatsView(APIView):
 
 class PurchaseLivesView(APIView):
     def post(self, request, *args, **kwargs):
-        print(111)
         user_id = request.data.get('user_id')
         lives_cost = request.data.get('cost', 15)
 
