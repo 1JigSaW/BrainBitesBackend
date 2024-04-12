@@ -13,3 +13,9 @@ def restore_lives():
     for user in users_to_restore:
         user.lives += 5
         user.save()
+
+
+@shared_task
+def clean_up_old_life_data():
+    cutoff_date = timezone.now() - timedelta(days=1)
+    CustomUser.objects.filter(last_life_lost_time__lt=cutoff_date, lives=5).delete()

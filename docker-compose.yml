@@ -1,6 +1,16 @@
 version: '3'
 services:
-  redis:
-    image: redis:alpine
+  web:
+    build: .
+    command: gunicorn BrainBites.wsgi:application --bind 0.0.0.0:8000 --log-file - --timeout 190
     ports:
-      - "6379:6379"
+      - "8000:8000"
+    restart: always
+  worker:
+    build: .
+    command: celery -A BrainBites worker --loglevel=info
+    restart: always
+  beat:
+    build: .
+    command: celery -A BrainBites beat --loglevel=info
+    restart: always
