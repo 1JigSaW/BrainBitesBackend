@@ -7,7 +7,7 @@ from .models import CustomUser
 @shared_task
 def restore_lives():
     now = timezone.now()
-    minute_ago = now - timedelta(seconds=55)
+    minute_ago = now - timedelta(seconds=50)
     users_to_restore = CustomUser.objects.filter(last_life_lost_time__lte=minute_ago, lives__lt=5)
 
     for user in users_to_restore:
