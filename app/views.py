@@ -1167,10 +1167,10 @@ class ReportLifeLossView(APIView):
     def post(self, request, user_id):
         user = get_object_or_404(CustomUser, pk=user_id)
         r = redis.Redis(
-            host='redis-17639.c325.us-east-1-4.ec2.cloud.redislabs.com',
-            port=17639,
-            password='sT13gq3CM9VMr25AY0BdUhxs6jw7Rfbp',
-            db=0,
+            host=os.environ.get('REDIS_HOST'),
+            port=os.environ.get('REDIS_PORT'),
+            password=os.environ.get('REDIS_PASSWORD'),
+            db=os.environ.get('REDIS_DB'),
             decode_responses=True
         )
         key = f"user_{user_id}_restore_lives"
@@ -1183,10 +1183,10 @@ class CheckRestoreLivesView(APIView):
     def get(self, request, user_id):
         user = get_object_or_404(CustomUser, pk=user_id)
         r = redis.Redis(
-            host='redis-17639.c325.us-east-1-4.ec2.cloud.redislabs.com',
-            port=17639,
-            password='sT13gq3CM9VMr25AY0BdUhxs6jw7Rfbp',
-            db=0,
+            host=os.environ.get('REDIS_HOST'),
+            port=os.environ.get('REDIS_PORT'),
+            password=os.environ.get('REDIS_PASSWORD'),
+            db=os.environ.get('REDIS_DB'),
             decode_responses=True
         )
         key = f"user_{user_id}_restore_lives"
