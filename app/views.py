@@ -1,7 +1,9 @@
 import os
 import random
 import string
+from datetime import timedelta
 
+import redis
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ObjectDoesNotExist
@@ -1159,3 +1161,49 @@ class AddXPView(APIView):
         user.save()
 
         return Response({"success": "XP successfully added.", "current_xp": user.xp}, status=status.HTTP_200_OK)
+
+
+class ReportLifeLossView(APIView):
+    def post(self, request, user_id):
+        user = get_object_or_404(CustomUser, pk=user_id)
+        r = redis.Redis(
+            host='redis-17639.c325.us-east-1-4.ec2.cloud.redislabs.com',
+            port=17639,
+            password='sT13gq3CM9VMr25AY0BdUhxs6jw7Rfbp',
+            db=0,
+            decode_responses=True
+        )
+        key = f"user_{user_id}_restore_lives"
+
+        r.set(key, timezone.now().isoformat())
+        return Response({"current_lives": user.lives, "message": "Life loss recorded and lives updated."})
+
+
+class CheckRestoreLivesView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(CustomUser, pk=user_id)
+        r = redis.Redis(
+            host='redis-17639.c325.us-east-1-4.ec2.cloud.redislabs.com',
+            port=17639,
+            password='sT13gq3CM9VMr25AY0BdUhxs6jw7Rfbp',
+            db=0,
+            decode_responses=True
+        )
+        key = f"user_{user_id}_restore_lives"
+        last_life_lost_time = r.get(key)
+        print('last_life_lost_time', last_life_lost_time)
+
+        if last_life_lost_time:
+            last_life_lost_time = timezone.datetime.fromisoformat(last_life_lost_time)
+            if timezone.now() >= last_life_lost_time + timedelta(minutes=1):
+                user.lives = 5
+                user.save()
+                r.delete(key)
+                return Response({"current_lives": user.lives, "message": "Lives restored."})
+
+            time_left = (last_life_lost_time + timedelta(minutes=1) - timezone.now()).total_seconds()
+            return Response({"time_left": time_left, "message": "Lives will be restored soon."})
+        else:
+            # Обработка случая, когда нет данных о последней потере жизни
+            return Response({"current_lives": user.lives, "message": "No life loss recorded or lives already restored."})
+
