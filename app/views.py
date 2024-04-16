@@ -1200,7 +1200,7 @@ class CheckRestoreLivesView(APIView):
                 r.delete(key)
                 return Response({"current_lives": user.lives, "message": "Lives restored."})
 
-            time_left = (last_life_lost_time + timedelta(minutes=1) - timezone.now()).total_seconds()
+            time_left = (last_life_lost_time + timedelta(hours=1) - timezone.now()).total_seconds()
             return Response({"time_left": time_left, "message": "Lives will be restored soon."})
         else:
             # Обработка случая, когда нет данных о последней потере жизни
