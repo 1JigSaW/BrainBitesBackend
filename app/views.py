@@ -480,7 +480,6 @@ class UsersView(APIView):
 
                 users_data = UserSerializer(users_query, many=True).data
 
-                print('users_data', users_data)
             else:
                 if sort_by not in ['xp', 'read_cards', 'badges']:
                     return Response({'error': 'Invalid sort parameter'}, status=status.HTTP_400_BAD_REQUEST)
