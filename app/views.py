@@ -1195,7 +1195,7 @@ class CheckRestoreLivesView(APIView):
 
         if last_life_lost_time:
             last_life_lost_time = timezone.datetime.fromisoformat(last_life_lost_time)
-            if timezone.now() >= last_life_lost_time + timedelta(minutes=1):
+            if timezone.now() >= last_life_lost_time + timedelta(hours=1):
                 user.lives = 5
                 user.save()
                 r.delete(key)
