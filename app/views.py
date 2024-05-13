@@ -3,6 +3,7 @@ import random
 import string
 from datetime import timedelta
 
+import jwt
 import redis
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
@@ -13,8 +14,10 @@ from django.db.models.functions import DenseRank
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
@@ -22,6 +25,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from jwt import PyJWKClient
 
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
     UserSubtitle, UserQuizStatistics, UserStreak, DailyReadCards, CorrectStreak
@@ -1217,3 +1221,46 @@ class DeleteAccountView(APIView):
 
         user.delete()
         return Response({"success": "User account successfully deleted."}, status=status.HTTP_200_OK)
+
+
+class AppleSignInView(View):
+    def post(self, request):
+        data = request.json()
+        print(data)
+        identity_token = data.get('identityToken')
+        user_id = data.get('user')
+        email = data.get('email')
+
+        if not identity_token:
+            return JsonResponse({"error": "Отсутствует токен идентификации."}, status=400)
+
+        try:
+            if not email:
+                email = f"{user_id}@placeholder.com"
+
+            user, created = CustomUser.objects.get_or_create(
+                email=email,
+                defaults={'username': user_id[:15], 'email': email}
+            )
+
+            if created:
+                with transaction.atomic():
+                    UserQuizStatistics.objects.create(user=user)
+                    DailyReadCards.objects.create(user=user, date=timezone.now().date(), cards_read=0)
+                    CorrectStreak.objects.create(user=user)
+
+                    topics = Topic.objects.all()
+                    user.topics.set(topics)
+
+                    user.save()
+
+            user_data = UserSerializer(user).data
+            return JsonResponse({'detail': 'Успешный вход или регистрация', 'user': user_data}, status=200)
+
+        except IntegrityError as e:
+            return JsonResponse(
+                {"error": "Ошибка при инициализации данных пользователя из-за проблемы целостности."},
+                status=500
+            )
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
