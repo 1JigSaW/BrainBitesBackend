@@ -1211,14 +1211,9 @@ class CheckRestoreLivesView(APIView):
 class DeleteAccountView(APIView):
     def post(self, request, *args, **kwargs):
         user_id = request.data.get('user_id')
-
         if user_id is None:
             return Response({"error": "Missing 'user_id'."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not request.user.is_authenticated or request.user.id != int(user_id):
-            return Response({"error": "Unauthorized access."}, status=status.HTTP_401_UNAUTHORIZED)
-
-        user = get_object_or_404(CustomUser, id=user_id)
+        user = get_object_or_404(CustomUser, pk=user_id)
 
         user.delete()
         return Response({"success": "User account successfully deleted."}, status=status.HTTP_200_OK)
