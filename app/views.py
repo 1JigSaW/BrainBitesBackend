@@ -3,7 +3,6 @@ import random
 import string
 from datetime import timedelta
 
-import jwt
 import redis
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
@@ -25,7 +24,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from jwt import PyJWKClient
 
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
     UserSubtitle, UserQuizStatistics, UserStreak, DailyReadCards, CorrectStreak
