@@ -53,7 +53,7 @@ urlpatterns = [
     path('check_restore_lives/<int:user_id>/', CheckRestoreLivesView.as_view(), name='check-restore-lives'),
     path('report_life_loss/<int:user_id>/', ReportLifeLossView.as_view(), name='report-life-loss'),
     path('delete_account/', DeleteAccountView.as_view(), name='delete_account'),
-    path('apple_sign_in/', AppleSignInView.as_view(), name='apple_sign_in'),
+    path('apple-signin/', AppleSignInView.as_view(), name='apple-signin'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

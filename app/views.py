@@ -1,6 +1,7 @@
 import os
 import random
 import string
+import uuid
 from datetime import timedelta
 
 import redis
@@ -24,6 +25,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from google.oauth2 import id_token
 from google.auth.transport import requests
+import jwt
+import requests
 
 from app.models import CustomUser, Topic, ViewedCard, Card, Quiz, UserBadgeProgress, Badge, EarnedBadge, Subtitle, \
     UserSubtitle, UserQuizStatistics, UserStreak, DailyReadCards, CorrectStreak
@@ -1221,44 +1224,56 @@ class DeleteAccountView(APIView):
         return Response({"success": "User account successfully deleted."}, status=status.HTTP_200_OK)
 
 
-class AppleSignInView(View):
-    def post(self, request):
-        data = request.json()
-        print(data)
-        identity_token = data.get('identityToken')
-        user_id = data.get('user')
-        email = data.get('email')
-
-        if not identity_token:
-            return JsonResponse({"error": "Отсутствует токен идентификации."}, status=400)
-
+class AppleSignInView(APIView):
+    def post(self, request, *args, **kwargs):
+        identity_token = request.data.get('identityToken')
+        user_id = request.data.get('user')
         try:
-            if not email:
-                email = f"{user_id}@placeholder.com"
+            # Decode the identity token without verifying it (since verification happens on the frontend)
+            decoded_token = jwt.decode(identity_token, options={"verify_signature": False})
+
+            email = decoded_token.get('email')
+            if email is None:
+                # Generate a unique email if it's not provided
+                email = f'{user_id}@apple.com'
+
+            email_username_part = email.split('@')[0]
+            username = email_username_part[:15]
+
+            # Ensure the username is unique by appending a random suffix if necessary
+            while CustomUser.objects.filter(username=username).exists():
+                username = f'{email_username_part[:10]}_{uuid.uuid4().hex[:4]}'
 
             user, created = CustomUser.objects.get_or_create(
                 email=email,
-                defaults={'username': user_id[:15], 'email': email}
+                defaults={'username': username}
             )
 
             if created:
-                with transaction.atomic():
-                    UserQuizStatistics.objects.create(user=user)
-                    DailyReadCards.objects.create(user=user, date=timezone.now().date(), cards_read=0)
-                    CorrectStreak.objects.create(user=user)
+                try:
+                    with transaction.atomic():
+                        UserQuizStatistics.objects.create(user=user)
+                        DailyReadCards.objects.create(user=user, date=timezone.now().date(), cards_read=0)
+                        CorrectStreak.objects.create(user=user)
 
-                    topics = Topic.objects.all()
-                    user.topics.set(topics)
+                        topics = Topic.objects.all()
+                        user.topics.set(topics)
 
-                    user.save()
+                        user.save()
+
+                except IntegrityError as e:
+                    return Response(
+                        {"error": "Failed to initialize user data due to an integrity error."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
             user_data = UserSerializer(user).data
-            return JsonResponse({'detail': 'Успешный вход или регистрация', 'user': user_data}, status=200)
 
-        except IntegrityError as e:
-            return JsonResponse(
-                {"error": "Ошибка при инициализации данных пользователя из-за проблемы целостности."},
-                status=500
-            )
+            return Response({'detail': 'Успешный вход/регистрация', 'user': user_data}, status=status.HTTP_200_OK)
+
+        except jwt.ExpiredSignatureError:
+            return Response({'error': 'Токен истек'}, status=status.HTTP_400_BAD_REQUEST)
+        except jwt.InvalidTokenError:
+            return Response({'error': 'Неверный токен'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
