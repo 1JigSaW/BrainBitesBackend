@@ -24,7 +24,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from google.oauth2 import id_token
-from google.auth.transport import requests
+from google.auth.transport import requests as lol
 import jwt
 import requests
 
@@ -1023,7 +1023,7 @@ class GoogleSignInView(APIView):
     def post(self, request, *args, **kwargs):
         token = request.data.get('id_token')
         try:
-            idinfo = id_token.verify_oauth2_token(token, requests.Request(), os.environ.get('GOOGLE_CLIENT_ID'))
+            idinfo = id_token.verify_oauth2_token(token, lol.Request(), os.environ.get('GOOGLE_CLIENT_ID'))
             email = idinfo['email']
 
             email_username_part = email.split('@')[0]
